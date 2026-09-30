@@ -254,7 +254,7 @@
     .nav__item {
       flex-direction: column;
       gap: 2px;
-      padding: $space-2 $space-3;
+      padding: $space-2 $space-2;
       font-size: 11px;
       min-height: 56px;
       min-width: 64px;
@@ -263,6 +263,29 @@
 
     .nav__item-label {
       font-size: 11px;
+    }
+
+    @media (max-width: 359px) {
+      .nav__item {
+        min-width: 56px;
+        padding: $space-2 $space-1;
+      }
+
+      .nav__item-label {
+        font-size: 10px;
+      }
+    }
+
+    @media (max-width: 339px) {
+      .nav__item-label {
+        font-size: 0;
+        line-height: 0;
+      }
+
+      .nav__item {
+        padding: $space-2 0;
+        gap: 0;
+      }
     }
   }
 </style>
