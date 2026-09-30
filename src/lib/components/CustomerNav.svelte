@@ -221,6 +221,7 @@
   @media (max-width: #{$bp-lg - 1px}) {
     .nav {
       position: fixed;
+      top: auto;
       bottom: 0;
       left: 0;
       right: 0;
@@ -228,7 +229,8 @@
       align-items: center;
       justify-content: space-around;
       width: auto;
-      min-height: 64px;
+      height: auto;
+      min-height: var(--nav-h);
       padding: $space-2 $space-3;
       border-right: 0;
       border-top: 1px solid $border;
