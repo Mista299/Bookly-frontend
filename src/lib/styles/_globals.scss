@@ -1,0 +1,68 @@
+@use 'tokens' as *;
+
+// =============================================================
+// BOOKLY — Variables globales consumibles desde cualquier lugar.
+// Las componentes usan var(--*) para mantener una única fuente de verdad.
+// =============================================================
+
+:root {
+  // Superficies.
+  --bg: #{$ivory};
+  --surface: #{$white};
+  --surface-soft: #{$plum-soft};
+  --border: #{$border};
+
+  // Texto.
+  --text: #{$text};
+  --muted: #{$muted};
+
+  // Marca.
+  --plum: #{$plum};
+  --plum-soft: #{$plum-soft};
+  --coral: #{$coral};
+
+  // Estado.
+  --success: #{$success};
+  --danger: #{$danger};
+
+  // Espaciado.
+  --space-1: #{$space-1};
+  --space-2: #{$space-2};
+  --space-3: #{$space-3};
+  --space-4: #{$space-4};
+  --space-5: #{$space-5};
+  --space-6: #{$space-6};
+  --space-7: #{$space-7};
+  --space-8: #{$space-8};
+  --space-9: #{$space-9};
+  --space-10: #{$space-10};
+
+  // Radios.
+  --radius-sm: #{$radius-sm};
+  --radius-md: #{$radius-md};
+  --radius-lg: #{$radius-lg};
+  --radius-xl: #{$radius-xl};
+
+  // Tipografía.
+  --font-display: #{$font-display};
+  --font-body: #{$font-body};
+
+  // Sombras.
+  --shadow-1: #{$shadow-1};
+  --shadow-2: #{$shadow-2};
+  --shadow-3: #{$shadow-3};
+
+  // Motion.
+  --ease-out: #{$ease-out};
+  --dur-fast: #{$dur-fast};
+  --dur-base: #{$dur-base};
+  --dur-slow: #{$dur-slow};
+
+  // Layout.
+  --container-max: 1180px;
+  --content-max: 880px;
+  --content-narrow: 640px;
+  --nav-width: 240px;
+  --nav-h: 64px;
+  --touch-target: #{$touch-target};
+}
