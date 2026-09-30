@@ -3,7 +3,6 @@
   import Button from '$lib/components/Button.svelte';
   import Select from '$lib/components/Select.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
   import Calendar from '$lib/components/Calendar.svelte';
   import { bookingService } from '$lib/services/booking';
   import { professionalService } from '$lib/services/professional';
@@ -154,11 +153,6 @@
 
 {#if loading}
   <Skeleton lines={8} avatar />
-{:else if bookings.length === 0 && view === 'day'}
-  <EmptyState
-    title="Sin turnos en este día."
-    description="No hay reservas registradas. Cambia de día o de profesional para explorar la disponibilidad."
-  />
 {:else}
   <Calendar
     {date}
