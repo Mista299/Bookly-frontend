@@ -13,3 +13,7 @@ export interface ProfessionalInput {
   fullName: string;
   specialty: string;
 }
+
+export interface ServiceIdsRequest {
+  serviceIds: string[];
+}

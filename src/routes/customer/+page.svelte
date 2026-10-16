@@ -3,24 +3,24 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Calendar from '$lib/components/Calendar.svelte';
-  import StatusPill from '$lib/components/StatusPill.svelte';
   import Money from '$lib/components/Money.svelte';
   import { serviceService } from '$lib/services/service';
   import { bookingService } from '$lib/services/booking';
   import { toasts } from '$lib/stores/toasts';
   import { auth } from '$lib/stores/auth';
+  import { formatApiError } from '$lib/services/errors';
   import { onMount } from 'svelte';
   import type { Service } from '$lib/types/service';
   import type { Booking, TimeSlot } from '$lib/types/booking';
   import { Search, ArrowRight, Sparkles } from 'lucide-svelte';
   import { goto } from '$app/navigation';
+  import { isSameDay, parseLocal, toLocalDateTime } from '$lib/utils/date';
 
   let services = $state<Service[]>([]);
   let bookings = $state<Booking[]>([]);
   let loadingServices = $state(true);
   let loadingAgenda = $state(true);
   let selectedSlot = $state<string | null>(null);
-  let selectedServiceId = $state<string | null>(null);
 
   const greeting = $derived.by(() => {
     const h = new Date().getHours();
@@ -36,15 +36,18 @@
     try {
       services = await serviceService.list();
     } catch (err) {
-      const msg = (err as { message?: string })?.message ?? 'No se pudieron cargar los servicios.';
-      toasts.push(msg, 'danger');
+      toasts.push(formatApiError(err, 'No se pudieron cargar los servicios.'), 'danger');
     } finally {
       loadingServices = false;
     }
 
+    const authState = $auth;
+    if (!authState.user) {
+      loadingAgenda = false;
+      return;
+    }
     try {
-      const dateStr = today.toISOString().slice(0, 10);
-      bookings = await bookingService.list({ date: dateStr });
+      bookings = await bookingService.listForCustomer(authState.user.id);
     } catch {
       // No bloqueante en home.
     } finally {
@@ -52,15 +55,56 @@
     }
   });
 
+  const dayBookings = $derived(
+    bookings
+      .filter((b) => b.status !== 'CANCELADA' && isSameDay(parseLocal(b.startTime), today))
+      .sort((a, b) => parseLocal(a.startTime).getTime() - parseLocal(b.startTime).getTime())
+  );
+
+  const daySlots = $derived.by(() => {
+    const out: TimeSlot[] = [];
+    const workdayStart = 8;
+    const workdayEnd = 20;
+    const slotMinutes = 30;
+    const base = new Date(today);
+    base.setHours(workdayStart, 0, 0, 0);
+    const totalSlots = (workdayEnd - workdayStart) * (60 / slotMinutes);
+    for (let i = 0; i < totalSlots; i++) {
+      const start = new Date(base.getTime() + i * slotMinutes * 60_000);
+      const end = new Date(start.getTime() + slotMinutes * 60_000);
+      const startIso = toLocalDateTime(start);
+      const booking = dayBookings.find((b) => parseLocal(b.startTime).getTime() === start.getTime());
+      if (booking) {
+        out.push({
+          start: startIso,
+          end: toLocalDateTime(end),
+          state: 'BOOKED',
+          booking
+        });
+      } else if (start.getTime() < Date.now()) {
+        out.push({
+          start: startIso,
+          end: toLocalDateTime(end),
+          state: 'OUT_OF_HOURS'
+        });
+      } else {
+        out.push({
+          start: startIso,
+          end: toLocalDateTime(end),
+          state: 'AVAILABLE'
+        });
+      }
+    }
+    return out;
+  });
+
   function handleSlotClick(slot: TimeSlot) {
-    if (slot.state === 'BOOKED') return;
+    if (slot.state !== 'AVAILABLE') return;
     selectedSlot = slot.start;
-    if (selectedServiceId) {
-      goto(`/customer/services/${selectedServiceId}`);
-    } else if (featured[0]) {
-      goto(`/customer/services/${featured[0].id}`);
+    if (featured[0]) {
+      void goto(`/customer/services/${featured[0].id}`);
     } else {
-      goto('/customer/services');
+      void goto('/customer/services');
     }
   }
 </script>
@@ -138,7 +182,7 @@
     {:else}
       <Calendar
         date={today}
-        bookings={bookings}
+        slots={daySlots}
         view="day"
         {selectedSlot}
         onSlotClick={handleSlotClick}

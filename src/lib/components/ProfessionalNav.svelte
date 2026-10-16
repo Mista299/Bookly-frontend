@@ -1,12 +1,13 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { auth } from '$lib/stores/auth';
-  import { Home, CalendarDays, ListChecks, UserRound, LogOut, BookOpen } from 'lucide-svelte';
+  import { Home, CalendarDays, ListChecks, UserRound, LogOut, BookOpen, Clock4 } from 'lucide-svelte';
   import { goto } from '$app/navigation';
 
   const items = [
     { href: '/professional', label: 'Inicio', icon: Home, exact: true },
     { href: '/professional/agenda', label: 'Mi agenda', icon: CalendarDays },
+    { href: '/professional/schedule', label: 'Horario', icon: Clock4 },
     { href: '/professional/turns', label: 'Turnos', icon: ListChecks },
     { href: '/professional/profile', label: 'Perfil', icon: UserRound }
   ];

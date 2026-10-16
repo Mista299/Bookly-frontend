@@ -1,10 +1,56 @@
 <script lang="ts">
   import PageHead from '$lib/components/PageHead.svelte';
   import Button from '$lib/components/Button.svelte';
+  import Field from '$lib/components/Field.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import { auth } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
   import { toasts } from '$lib/stores/toasts';
-  import { UserRound, Mail, LogOut } from 'lucide-svelte';
+  import { formatApiError, isApiError } from '$lib/services/errors';
+  import { UserRound, Mail, LogOut, KeyRound } from 'lucide-svelte';
+
+  let showPwd = $state(false);
+  let currentPwd = $state('');
+  let newPwd = $state('');
+  let repeatPwd = $state('');
+  let pwdErrors = $state<Record<string, string>>({});
+  let saving = $state(false);
+
+  function openPwd() {
+    currentPwd = '';
+    newPwd = '';
+    repeatPwd = '';
+    pwdErrors = {};
+    showPwd = true;
+  }
+
+  function validate(): boolean {
+    const e: Record<string, string> = {};
+    if (!currentPwd) e.currentPwd = 'Introduce tu contraseña actual.';
+    if (newPwd.length < 8) e.newPwd = 'La nueva contraseña debe tener al menos 8 caracteres.';
+    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/.test(newPwd))
+      e.newPwd = 'Debe incluir mayúscula, minúscula, número y carácter especial.';
+    if (repeatPwd !== newPwd) e.repeatPwd = 'Las contraseñas no coinciden.';
+    pwdErrors = e;
+    return Object.keys(e).length === 0;
+  }
+
+  async function submit() {
+    if (!validate()) return;
+    saving = true;
+    try {
+      await auth.changePassword({ currentPassword: currentPwd, newPassword: newPwd });
+      toasts.push('Contraseña actualizada.', 'success');
+      showPwd = false;
+    } catch (err) {
+      const msg = isApiError(err)
+        ? formatApiError(err, 'No se pudo cambiar la contraseña.')
+        : 'No se pudo cambiar la contraseña.';
+      toasts.push(msg, 'danger');
+    } finally {
+      saving = false;
+    }
+  }
 
   function logout() {
     auth.logout();
@@ -45,6 +91,9 @@
         </div>
       </dl>
       <div class="card__actions">
+        <Button variant="secondary" onclick={openPwd}>
+          <KeyRound size={16} /> Cambiar contraseña
+        </Button>
         <Button variant="ghost" onclick={logout}>
           <LogOut size={16} /> Cerrar sesión
         </Button>
@@ -52,6 +101,46 @@
     </section>
   {/if}
 </div>
+
+<Modal
+  open={showPwd}
+  title="Cambiar contraseña"
+  description="Introduce tu contraseña actual y la nueva."
+  size="sm"
+  onClose={() => (showPwd = false)}
+>
+  <div class="form-stack">
+    <Field
+      label="Contraseña actual"
+      type="password"
+      autocomplete="current-password"
+      bind:value={currentPwd}
+      error={pwdErrors.currentPwd ?? null}
+      required
+    />
+    <Field
+      label="Nueva contraseña"
+      type="password"
+      autocomplete="new-password"
+      bind:value={newPwd}
+      error={pwdErrors.newPwd ?? null}
+      helper="Mínimo 8 caracteres, mayúscula, minúscula, número y símbolo."
+      required
+    />
+    <Field
+      label="Repite la nueva contraseña"
+      type="password"
+      autocomplete="new-password"
+      bind:value={repeatPwd}
+      error={pwdErrors.repeatPwd ?? null}
+      required
+    />
+  </div>
+  {#snippet footer()}
+    <Button variant="ghost" onclick={() => (showPwd = false)}>Cancelar</Button>
+    <Button onclick={submit} loading={saving}>Guardar</Button>
+  {/snippet}
+</Modal>
 
 <style lang="scss">
   @use '$lib/styles/tokens' as *;
@@ -141,6 +230,14 @@
     padding-top: $space-5;
     border-top: 1px solid $border;
     display: flex;
+    flex-wrap: wrap;
+    gap: $space-3;
     justify-content: flex-end;
+  }
+
+  .form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
   }
 </style>

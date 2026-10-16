@@ -6,15 +6,18 @@
   import { bookingService } from '$lib/services/booking';
   import { toasts } from '$lib/stores/toasts';
   import { auth } from '$lib/stores/auth';
+  import { formatApiError } from '$lib/services/errors';
   import { onMount } from 'svelte';
   import type { Booking } from '$lib/types/booking';
   import { ChevronRight, Calendar as CalIcon } from 'lucide-svelte';
   import { goto } from '$app/navigation';
+  import { fmtTime, isSameDay } from '$lib/utils/date';
 
   let bookings = $state<Booking[]>([]);
   let loading = $state(true);
 
   const today = new Date();
+
   const todayLabel = today.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -23,32 +26,26 @@
 
   const todays = $derived(
     bookings
-      .filter((b) => {
-        const d = new Date(b.startTime);
-        return (
-          d.getFullYear() === today.getFullYear() &&
-          d.getMonth() === today.getMonth() &&
-          d.getDate() === today.getDate() &&
-          b.status !== 'CANCELLED'
-        );
-      })
+      .filter((b) => b.status !== 'CANCELADA' && isSameDay(new Date(b.startTime), today))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
   );
 
-  onMount(async () => {
+  async function load() {
+    const authState = $auth;
+    if (!authState.user) {
+      loading = false;
+      return;
+    }
     try {
-      bookings = await bookingService.list({ date: today.toISOString().slice(0, 10) });
+      bookings = await bookingService.listForProfessional(authState.user.id);
     } catch (err) {
-      const msg = (err as { message?: string })?.message ?? 'No se pudieron cargar tus turnos.';
-      toasts.push(msg, 'danger');
+      toasts.push(formatApiError(err, 'No se pudieron cargar tus turnos.'), 'danger');
     } finally {
       loading = false;
     }
-  });
-
-  function fmtTime(iso: string) {
-    return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
+
+  onMount(load);
 </script>
 
 <svelte:head>
@@ -107,10 +104,12 @@
           <li class="turn">
             <span class="turn__time">{fmtTime(b.startTime)}</span>
             <div class="turn__main">
-              <p class="turn__customer">{b.customerName}</p>
-              <p class="turn__service">{b.serviceName}</p>
+              <p class="turn__customer">{b.customerName ?? 'Cliente'}</p>
+              <p class="turn__service">{b.serviceName ?? 'Servicio'}</p>
             </div>
-            <ChevronRight size={16} class="turn__chev" />
+            <span class="turn__chev" aria-hidden="true">
+              <ChevronRight size={16} />
+            </span>
           </li>
         {/each}
       </ul>
@@ -144,7 +143,9 @@
     margin: $space-2 0 $space-2;
   }
 
-  .head__name { color: $plum; }
+  .head__name {
+    color: $plum;
+  }
 
   .head__date {
     color: $muted;
@@ -178,7 +179,9 @@
     color: $plum;
   }
 
-  .counter__value.placeholder { color: $border; }
+  .counter__value.placeholder {
+    color: $border;
+  }
 
   .counter__link {
     display: inline-flex;
@@ -189,7 +192,10 @@
     font-size: $fs-sm;
     font-weight: $fw-medium;
 
-    &:hover { gap: 10px; transition: gap 120ms ease; }
+    &:hover {
+      gap: 10px;
+      transition: gap 120ms ease;
+    }
   }
 
   .turns__title {

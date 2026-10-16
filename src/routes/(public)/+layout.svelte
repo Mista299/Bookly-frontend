@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { BookOpen } from 'lucide-svelte';
   import { auth } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { BookOpen } from 'lucide-svelte';
 
   let { children } = $props();
 
   onMount(() => {
     const unsub = auth.subscribe((s) => {
-      if (!s.ready || s.loading) return;
-      const role = s.user?.role;
+      if (!s.ready || s.loading || !s.user) return;
+      const role = s.user.role;
       if (role === 'ADMIN') void goto('/admin', { replaceState: true });
       else if (role === 'PROFESSIONAL') void goto('/professional', { replaceState: true });
       else if (role === 'CUSTOMER') void goto('/customer', { replaceState: true });
@@ -66,7 +66,7 @@
 
   .shell__main {
     width: 100%;
-    max-width: 420px;
+    max-width: 460px;
   }
 
   .shell__foot {

@@ -7,11 +7,15 @@
   import Button from '$lib/components/Button.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import MultiSelect from '$lib/components/MultiSelect.svelte';
   import { serviceService } from '$lib/services/service';
+  import { professionalService } from '$lib/services/professional';
   import { toasts } from '$lib/stores/toasts';
   import { goto } from '$app/navigation';
+  import { formatApiError } from '$lib/services/errors';
   import { ArrowLeft } from 'lucide-svelte';
   import { onMount } from 'svelte';
+  import type { Professional } from '$lib/types/professional';
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -40,6 +44,11 @@ const categoryOptions = [
 
   let errors = $state<Record<string, string>>({});
 
+  let allProfessionals = $state<Professional[]>([]);
+  let assignedIds = $state<string[]>([]);
+  let prosLoading = $state(false);
+  let prosSaving = $state(false);
+
   onMount(async () => {
     if (!UUID_RE.test(id)) {
       badId = true;
@@ -61,7 +70,60 @@ const categoryOptions = [
     } finally {
       loading = false;
     }
+    await loadProfessionals();
   });
+
+  async function loadProfessionals() {
+    if (!UUID_RE.test(id)) return;
+    prosLoading = true;
+    try {
+      const [list, assigned] = await Promise.all([
+        professionalService.list(),
+        serviceService.listProfessionals(id)
+      ]);
+      allProfessionals = list;
+      assignedIds = assigned.map((p) => p.id);
+    } catch (err) {
+      toasts.push(formatApiError(err, 'No se pudo cargar la lista de profesionales.'), 'danger');
+    } finally {
+      prosLoading = false;
+    }
+  }
+
+  async function saveAssigned(next: string[]) {
+    if (!UUID_RE.test(id)) return;
+    const previous = assignedIds;
+    const removed = previous.filter((pid) => !next.includes(pid));
+    const added = next.filter((pid) => !previous.includes(pid));
+
+    if (removed.length === 0 && added.length === 0) {
+      assignedIds = next;
+      return;
+    }
+
+    prosSaving = true;
+    try {
+      for (const pid of removed) {
+        if (pid === id) continue;
+        const current = await professionalService.getServiceIds(pid);
+        const filtered = current.filter((sid) => sid !== id);
+        await professionalService.setServiceIds(pid, filtered);
+      }
+      for (const pid of added) {
+        const current = await professionalService.getServiceIds(pid);
+        if (!current.includes(id)) {
+          await professionalService.setServiceIds(pid, [...current, id]);
+        }
+      }
+      assignedIds = next;
+      toasts.push('Asignación de profesionales actualizada.', 'success');
+    } catch (err) {
+      assignedIds = previous;
+      toasts.push(formatApiError(err, 'No se pudo actualizar la asignación.'), 'danger');
+    } finally {
+      prosSaving = false;
+    }
+  }
 
   function validate(): boolean {
     const e: Record<string, string> = {};
@@ -188,6 +250,37 @@ const categoryOptions = [
       <Button type="submit" loading={saving}>Guardar cambios</Button>
     </div>
   </form>
+
+  <section class="pros" aria-labelledby="pros-heading">
+    <header class="pros__head">
+      <h2 id="pros-heading" class="pros__title">Profesionales que ofrecen este servicio</h2>
+      <p class="pros__desc">
+        Marca los profesionales que pueden tomar reservas de “{name || 'este servicio'}”. Los cambios se
+        guardan al instante.
+      </p>
+    </header>
+
+    {#if prosLoading}
+      <Skeleton lines={2} />
+    {:else if allProfessionals.length === 0}
+      <p class="pros__empty">
+        Aún no hay profesionales en el equipo. Añádelos desde el listado de equipo.
+      </p>
+    {:else}
+      <MultiSelect
+        items={allProfessionals.map((p) => ({
+          value: p.id,
+          label: p.fullName,
+          hint: p.specialty
+        }))}
+        selected={assignedIds}
+        placeholder="Buscar profesionales…"
+        helper={prosSaving ? 'Guardando cambios…' : 'Selecciona uno o varios profesionales.'}
+        disabled={prosSaving}
+        onChange={(next) => saveAssigned(next)}
+      />
+    {/if}
+  </section>
 {/if}
 
 <style lang="scss">
@@ -278,5 +371,44 @@ const categoryOptions = [
     gap: $space-3;
     justify-content: flex-end;
     margin-top: $space-3;
+  }
+
+  .pros {
+    margin-top: $space-9;
+    padding-top: $space-7;
+    border-top: 1px solid $border;
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+    max-width: 720px;
+  }
+
+  .pros__head {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+  }
+
+  .pros__title {
+    font-family: $font-display;
+    font-size: $fs-xl;
+    font-weight: $fw-semibold;
+    color: $text;
+  }
+
+  .pros__desc {
+    font-size: $fs-sm;
+    color: $muted;
+    line-height: $lh-relaxed;
+    max-width: 56ch;
+  }
+
+  .pros__empty {
+    font-size: $fs-sm;
+    color: $muted;
+    background: $ivory;
+    border: 1px dashed $border;
+    border-radius: $radius-md;
+    padding: $space-4;
   }
 </style>

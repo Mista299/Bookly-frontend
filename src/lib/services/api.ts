@@ -2,6 +2,8 @@ import { browser } from '$app/environment';
 import type { ApiError } from '$lib/types/auth';
 
 export const TOKEN_KEY = 'bookly.token';
+export const UNAUTHORIZED_EVENT = 'bookly:unauthorized';
+
 const API_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 
 export const tokenStore = {
@@ -41,11 +43,26 @@ function buildApiError(status: number, payload: unknown, fallback: string): ApiE
     (obj && typeof obj.message === 'string' && obj.message) ||
     (typeof payload === 'string' && payload) ||
     fallback;
+
+  const details =
+    obj && typeof obj.details === 'object' && obj.details !== null
+      ? (obj.details as Record<string, string>)
+      : undefined;
+
+  const lockMinutes =
+    obj && typeof obj.lockMinutes === 'number'
+      ? obj.lockMinutes
+      : obj && details && typeof (details as Record<string, unknown>).lockMinutes === 'number'
+        ? ((details as Record<string, unknown>).lockMinutes as number)
+        : undefined;
+
   return {
     errorCode: obj && typeof obj.errorCode === 'string' ? obj.errorCode : undefined,
     message,
     status,
-    details: obj && typeof obj.details === 'object' ? (obj.details as Record<string, string>) : undefined
+    details,
+    lockMinutes,
+    traceId: obj && typeof obj.traceId === 'string' ? obj.traceId : undefined
   };
 }
 
@@ -83,7 +100,12 @@ export async function apiFetch<T>(
   const payload = await safeJson(response);
 
   if (response.status === 401) {
-    if (!silent401) tokenStore.clear();
+    if (!silent401) {
+      tokenStore.clear();
+      if (browser) {
+        window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+      }
+    }
     throw buildApiError(401, payload, 'No autorizado');
   }
 
@@ -93,3 +115,5 @@ export async function apiFetch<T>(
 
   return payload as T;
 }
+
+export const apiBaseUrl = API_URL;

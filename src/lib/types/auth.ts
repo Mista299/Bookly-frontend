@@ -12,6 +12,10 @@ export interface AuthResponse {
   tokenType: 'Bearer';
   expiresIn: number;
   user: User;
+  mfaRequired: boolean;
+  mfaSetupRequired: boolean;
+  mfaToken: string | null;
+  deviceToken: string | null;
 }
 
 export interface RegisterResponse {
@@ -27,4 +31,22 @@ export interface ApiError {
   message: string;
   status: number;
   details?: Record<string, string>;
+  lockMinutes?: number;
+  traceId?: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCustomerRequest {
+  email: string;
+  password: string;
+  fullName: string;
 }

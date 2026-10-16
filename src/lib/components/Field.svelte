@@ -8,7 +8,7 @@
     helper?: string;
     required?: boolean;
     disabled?: boolean;
-    autocomplete?: string;
+    autocomplete?: AutoFill;
     id?: string;
     name?: string;
     min?: number;

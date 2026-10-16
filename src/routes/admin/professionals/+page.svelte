@@ -4,15 +4,23 @@
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import MultiSelect from '$lib/components/MultiSelect.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import { professionalService } from '$lib/services/professional';
+  import { serviceService } from '$lib/services/service';
+  import { userService } from '$lib/services/user';
   import { toasts } from '$lib/stores/toasts';
+  import { formatApiError } from '$lib/services/errors';
   import { onMount } from 'svelte';
   import type { Professional, ProfessionalInput } from '$lib/types/professional';
-  import { Plus, UserRound, X } from 'lucide-svelte';
+  import type { Service } from '$lib/types/service';
+  import { Plus, X, Copy, Check, KeyRound, Settings2, CalendarDays } from 'lucide-svelte';
 
   let list = $state<Professional[]>([]);
   let loading = $state(true);
-  let listUnavailable = $state(false);
+  let assignedCounts = $state<Record<string, number>>({});
+  let allServices = $state<Service[]>([]);
+
   let showForm = $state(false);
   let saving = $state(false);
 
@@ -22,21 +30,58 @@
   let specialty = $state('');
   let errors = $state<Record<string, string>>({});
 
+  let servicesModalOpen = $state(false);
+  let servicesModalProfessional = $state<Professional | null>(null);
+  let servicesModalSelected = $state<string[]>([]);
+  let servicesModalInitial = $state<string[]>([]);
+  let servicesModalLoading = $state(false);
+  let servicesModalSaving = $state(false);
+
+  let pwdModalOpen = $state(false);
+  let pwdModalProfessional = $state<Professional | null>(null);
+  let pwdModalValue = $state('');
+  let pwdModalCopied = $state(false);
+  let pwdModalLoading = $state(false);
+
   onMount(async () => {
+    await Promise.all([loadList(), loadServices()]);
+  });
+
+  async function loadList() {
+    loading = true;
     try {
       list = await professionalService.list();
+      await refreshAssignedCounts();
     } catch (err) {
-      const e = err as { status?: number };
-      if (e.status === 404 || e.status === 401 || e.status === 405) {
-        listUnavailable = true;
-      } else {
-        const msg = (err as { message?: string })?.message ?? 'No se pudo cargar el equipo.';
-        toasts.push(msg, 'danger');
-      }
+      toasts.push(formatApiError(err, 'No se pudo cargar el equipo.'), 'danger');
     } finally {
       loading = false;
     }
-  });
+  }
+
+  async function loadServices() {
+    try {
+      allServices = await serviceService.list();
+    } catch (err) {
+      toasts.push(formatApiError(err, 'No se pudieron cargar los servicios.'), 'danger');
+    }
+  }
+
+  async function refreshAssignedCounts() {
+    const entries = await Promise.all(
+      list.map(async (p) => {
+        try {
+          const ids = await professionalService.getServiceIds(p.id);
+          return [p.id, ids.length] as const;
+        } catch {
+          return [p.id, 0] as const;
+        }
+      })
+    );
+    const next: Record<string, number> = {};
+    for (const [id, count] of entries) next[id] = count;
+    assignedCounts = next;
+  }
 
   function reset() {
     fullName = '';
@@ -73,16 +118,104 @@
     try {
       const created = await professionalService.create(payload);
       list = [created, ...list];
+      assignedCounts = { ...assignedCounts, [created.id]: 0 };
       toasts.push('Profesional añadido.', 'success');
       reset();
       showForm = false;
     } catch (err) {
-      const e = err as { message?: string; details?: Record<string, string> };
-      if (e.details) errors = { ...errors, ...e.details };
-      const msg = e.message ?? 'No se pudo añadir al profesional.';
-      toasts.push(msg, 'danger');
+      const detailErr = err as { details?: Record<string, string> };
+      if (detailErr.details) errors = { ...errors, ...detailErr.details };
+      toasts.push(formatApiError(err, 'No se pudo añadir al profesional.'), 'danger');
     } finally {
       saving = false;
+    }
+  }
+
+  function initials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  async function openServicesModal(p: Professional) {
+    servicesModalProfessional = p;
+    servicesModalOpen = true;
+    servicesModalLoading = true;
+    try {
+      const ids = await professionalService.getServiceIds(p.id);
+      servicesModalSelected = ids;
+      servicesModalInitial = ids;
+    } catch (err) {
+      toasts.push(formatApiError(err, 'No se pudieron cargar los servicios del profesional.'), 'danger');
+      servicesModalSelected = [];
+      servicesModalInitial = [];
+    } finally {
+      servicesModalLoading = false;
+    }
+  }
+
+  function closeServicesModal() {
+    servicesModalOpen = false;
+    servicesModalProfessional = null;
+    servicesModalSelected = [];
+    servicesModalInitial = [];
+  }
+
+  async function saveServicesModal() {
+    if (!servicesModalProfessional) return;
+    servicesModalSaving = true;
+    try {
+      await professionalService.setServiceIds(servicesModalProfessional.id, servicesModalSelected);
+      assignedCounts = { ...assignedCounts, [servicesModalProfessional.id]: servicesModalSelected.length };
+      servicesModalInitial = servicesModalSelected;
+      toasts.push('Servicios actualizados.', 'success');
+      closeServicesModal();
+    } catch (err) {
+      toasts.push(formatApiError(err, 'No se pudieron guardar los servicios.'), 'danger');
+    } finally {
+      servicesModalSaving = false;
+    }
+  }
+
+  function cancelServicesModal() {
+    servicesModalSelected = servicesModalInitial;
+    closeServicesModal();
+  }
+
+  async function openPasswordModal(p: Professional) {
+    pwdModalProfessional = p;
+    pwdModalValue = '';
+    pwdModalCopied = false;
+    pwdModalOpen = true;
+    pwdModalLoading = true;
+    try {
+      const res = await userService.resetPassword(p.id);
+      pwdModalValue = res.temporaryPassword;
+      toasts.push(`Contraseña temporal generada para ${p.fullName}.`, 'info');
+    } catch (err) {
+      toasts.push(formatApiError(err, 'No se pudo restablecer la contraseña.'), 'danger');
+      closePasswordModal();
+    } finally {
+      pwdModalLoading = false;
+    }
+  }
+
+  function closePasswordModal() {
+    pwdModalOpen = false;
+    pwdModalProfessional = null;
+    pwdModalValue = '';
+    pwdModalCopied = false;
+  }
+
+  async function copyPassword() {
+    if (!pwdModalValue) return;
+    try {
+      await navigator.clipboard.writeText(pwdModalValue);
+      pwdModalCopied = true;
+      setTimeout(() => (pwdModalCopied = false), 1500);
+    } catch {
+      pwdModalCopied = false;
     }
   }
 </script>
@@ -145,6 +278,7 @@
         bind:value={password}
         error={errors.password ?? null}
         placeholder="Mínimo 8 caracteres"
+        helper="8+ caracteres, mayúscula, minúscula, número y carácter especial."
         autocomplete="new-password"
         required
       />
@@ -163,11 +297,6 @@
         <Skeleton avatar lines={2} />
       {/each}
     </div>
-  {:else if listUnavailable}
-    <EmptyState
-      title="Listado no expuesto en Sprint 1"
-      description="El backend todavía no devuelve el equipo; puedes seguir dando altas desde el formulario de arriba."
-    />
   {:else if list.length === 0}
     <EmptyState
       title="Aún no hay profesionales"
@@ -183,19 +312,120 @@
     <ul class="team__list">
       {#each list as p (p.id)}
         <li class="member">
-          <span class="member__avatar" aria-hidden="true">
-            <UserRound size={18} />
-          </span>
+          <span class="member__avatar" aria-hidden="true">{initials(p.fullName) || '?'}</span>
           <div class="member__main">
             <p class="member__name">{p.fullName}</p>
             <p class="member__email">{p.email}</p>
-            <p class="member__bio">{p.specialty}</p>
+            <p class="member__bio">
+              <span class="member__chip">{p.specialty}</span>
+              <span class="member__chip member__chip--soft">
+                {assignedCounts[p.id] ?? 0}
+                {(assignedCounts[p.id] ?? 0) === 1 ? 'servicio' : 'servicios'}
+              </span>
+            </p>
+          </div>
+          <div class="member__actions">
+            <a
+              class="action"
+              href={`/admin/agenda?professionalId=${encodeURIComponent(p.id)}`}
+              aria-label={`Ver agenda de ${p.fullName}`}
+            >
+              <CalendarDays size={14} /> Ver agenda
+            </a>
+            <button
+              type="button"
+              class="action"
+              onclick={() => openServicesModal(p)}
+              aria-label={`Editar servicios de ${p.fullName}`}
+            >
+              <Settings2 size={14} /> Editar servicios
+            </button>
+            <button
+              type="button"
+              class="action"
+              onclick={() => openPasswordModal(p)}
+              aria-label={`Restablecer contraseña de ${p.fullName}`}
+            >
+              <KeyRound size={14} /> Restablecer clave
+            </button>
           </div>
         </li>
       {/each}
     </ul>
   {/if}
 </section>
+
+<Modal
+  open={servicesModalOpen}
+  title="Servicios del profesional"
+  description={servicesModalProfessional
+    ? `Asigna los servicios que ${servicesModalProfessional.fullName} puede ofrecer.`
+    : ''}
+  size="md"
+  onClose={cancelServicesModal}
+>
+  {#if servicesModalLoading}
+    <Skeleton lines={3} />
+  {:else}
+    <MultiSelect
+      items={allServices.map((s) => ({
+        value: s.id,
+        label: s.name,
+        hint: s.status === 'ACTIVO' ? s.category : `${s.category} · inactivo`
+      }))}
+      selected={servicesModalSelected}
+      placeholder="Buscar servicios…"
+      emptyText="No hay servicios en el catálogo"
+      helper={servicesModalSaving ? 'Guardando cambios…' : 'Puedes asignar varios a la vez.'}
+      disabled={servicesModalSaving}
+      onChange={(next) => (servicesModalSelected = next)}
+    />
+  {/if}
+
+  {#snippet footer()}
+    <Button variant="ghost" onclick={cancelServicesModal} disabled={servicesModalSaving}>
+      Cancelar
+    </Button>
+    <Button
+      onclick={saveServicesModal}
+      loading={servicesModalSaving}
+      disabled={servicesModalLoading}
+    >
+      Guardar servicios
+    </Button>
+  {/snippet}
+</Modal>
+
+<Modal
+  open={pwdModalOpen}
+  title="Contraseña temporal"
+  description={pwdModalProfessional
+    ? `Esta es la contraseña temporal de ${pwdModalProfessional.fullName}. Compártela por un canal seguro; el profesional deberá cambiarla al iniciar sesión.`
+    : ''}
+  size="sm"
+  onClose={closePasswordModal}
+>
+  {#if pwdModalLoading}
+    <Skeleton lines={2} />
+  {:else}
+    <div class="pwd">
+      <code class="pwd__code" aria-label="Contraseña temporal">{pwdModalValue}</code>
+      <button
+        type="button"
+        class="pwd__copy"
+        onclick={copyPassword}
+        aria-label="Copiar contraseña"
+        disabled={!pwdModalValue}
+      >
+        {#if pwdModalCopied}<Check size={14} /> Copiada{:else}<Copy size={14} /> Copiar{/if}
+      </button>
+    </div>
+  {/if}
+
+  {#snippet footer()}
+    <Button onclick={closePasswordModal}>Cerrar</Button>
+  {/snippet}
+</Modal>
 
 <style lang="scss">
   @use '$lib/styles/tokens' as *;
@@ -257,7 +487,7 @@
 
   .member {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr;
     gap: $space-4;
     align-items: center;
     padding: $space-5;
@@ -266,17 +496,26 @@
     &:first-child {
       border-top: 0;
     }
+
+    @media (min-width: #{$bp-md}) {
+      grid-template-columns: auto 1fr auto;
+    }
   }
 
   .member__avatar {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: $radius-pill;
     background: $plum-soft;
     color: $plum;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    font-family: $font-display;
+    font-weight: $fw-semibold;
+    font-size: $fs-sm;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
   }
 
   .member__main {
@@ -299,6 +538,113 @@
     color: $muted;
     line-height: $lh-relaxed;
     margin-top: $space-2;
-    max-width: 56ch;
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+  }
+
+  .member__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: $radius-pill;
+    background: $plum-soft;
+    color: $plum;
+    font-size: $fs-xs;
+    font-weight: $fw-medium;
+
+    &--soft {
+      background: $ivory;
+      color: $muted;
+      border: 1px solid $border;
+    }
+  }
+
+  .member__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    grid-column: 1 / -1;
+    margin-top: $space-3;
+
+    @media (min-width: #{$bp-md}) {
+      grid-column: auto;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: $space-2;
+      margin-top: 0;
+    }
+  }
+
+  .action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $border;
+    background: $surface;
+    color: $text;
+    font-size: $fs-xs;
+    font-weight: $fw-medium;
+    cursor: pointer;
+    transition:
+      background var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
+    text-decoration: none;
+
+    &:hover {
+      background: $plum-soft;
+      color: $plum;
+      border-color: $plum-soft;
+    }
+
+    @media (min-width: #{$bp-md}) {
+      padding: 4px 10px;
+      font-size: $fs-xs;
+    }
+  }
+
+  .pwd {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-4;
+    background: $ivory;
+    border: 1px solid $border;
+    border-radius: $radius-md;
+  }
+
+  .pwd__code {
+    flex: 1;
+    font-family: $font-display;
+    font-size: $fs-xl;
+    color: $text;
+    letter-spacing: 0.08em;
+    word-break: break-all;
+  }
+
+  .pwd__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: $plum;
+    color: $white;
+    border: 0;
+    padding: 8px 14px;
+    border-radius: $radius-md;
+    font-size: $fs-sm;
+    font-weight: $fw-medium;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: color.adjust($plum, $lightness: 4%);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
   }
 </style>

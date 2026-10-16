@@ -8,61 +8,112 @@
   import { professionalService } from '$lib/services/professional';
   import { toasts } from '$lib/stores/toasts';
   import { onMount } from 'svelte';
-  import type { Booking, TimeSlot } from '$lib/types/booking';
+  import { page } from '$app/stores';
+  import type { Booking, SlotState, TimeSlot } from '$lib/types/booking';
   import type { Professional } from '$lib/types/professional';
   import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users } from 'lucide-svelte';
+  import { addDays, toISODate, fmtDateLong, fmtDateShort, isSameDay } from '$lib/utils/date';
 
   let date = $state(new Date());
   let bookings = $state<Booking[]>([]);
   let professionals = $state<Professional[]>([]);
-  let selectedProfessionalId = $state<string>('all');
+  let selectedProfessionalId = $state<string>('');
   let loading = $state(true);
   let view = $state<'day' | 'week'>('day');
   let selectedSlot = $state<string | null>(null);
 
   const professionalOptions = $derived([
-    { value: 'all', label: 'Todos los profesionales' },
+    { value: '', label: 'Todos los profesionales' },
     ...professionals.map((p) => ({ value: p.id, label: p.fullName }))
   ]);
 
-  function fmtDateLong(d: Date) {
-    return d.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long'
-    });
+  async function loadProfessionals() {
+    try {
+      professionals = await professionalService.list();
+      const params = new URLSearchParams($page.url.search);
+      const focus = params.get('professionalId');
+      if (focus && professionals.some((p) => p.id === focus)) {
+        selectedProfessionalId = focus;
+      } else {
+        selectedProfessionalId = '';
+      }
+    } catch {
+      // No bloqueante.
+    }
   }
 
-  function fmtDateShort(d: Date) {
-    return d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
+  async function loadBookings() {
+    if (selectedProfessionalId) {
+      try {
+        bookings = await bookingService.listForProfessional(selectedProfessionalId);
+      } catch (err) {
+        const e = err as { status?: number; message?: string };
+        if (e.status !== 401) {
+          toasts.push(e.message ?? 'No se pudieron cargar los turnos.', 'danger');
+        }
+        bookings = [];
+      }
+      return;
+    }
+    try {
+      const results = await Promise.all(
+        professionals.map((p) =>
+          bookingService.listForProfessional(p.id).catch(() => [] as Booking[])
+        )
+      );
+      bookings = results.flat();
+    } catch (err) {
+      const e = err as { message?: string };
+      toasts.push(e.message ?? 'No se pudieron cargar los turnos.', 'danger');
+      bookings = [];
+    }
+  }
+
+  function buildSlotsForDay(target: Date): TimeSlot[] {
+    const out: TimeSlot[] = [];
+    const workdayStart = 8;
+    const workdayEnd = 20;
+    const slotMinutes = 30;
+    const base = new Date(target);
+    base.setHours(workdayStart, 0, 0, 0);
+    const slotsPerHour = 60 / slotMinutes;
+    const total = (workdayEnd - workdayStart) * slotsPerHour;
+
+    for (let i = 0; i < total; i++) {
+      const start = new Date(base.getTime() + i * slotMinutes * 60_000);
+      const end = new Date(start.getTime() + slotMinutes * 60_000);
+      const startMs = start.getTime();
+      const booking = bookings.find((b) => {
+        if (b.status === 'CANCELADA') return false;
+        const bs = new Date(b.startTime).getTime();
+        const be = new Date(b.endTime).getTime();
+        return bs <= startMs && be > startMs;
+      });
+
+      let state: SlotState;
+      const now = Date.now();
+      if (start.getTime() < now) state = 'OUT_OF_HOURS';
+      else if (booking) state = 'BOOKED';
+      else state = 'AVAILABLE';
+
+      out.push({ start: start.toISOString(), end: end.toISOString(), state, booking });
+    }
+    return out;
   }
 
   function shiftDays(days: number) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    date = d;
+    date = addDays(date, days);
   }
 
   function goToToday() {
     date = new Date();
   }
 
-  function toISODate(d: Date) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dd}`;
-  }
-
   $effect(() => {
     void (async () => {
       loading = true;
       try {
-        const target = selectedProfessionalId === 'all' ? null : selectedProfessionalId;
-        bookings = await bookingService.list({ date: toISODate(date), professionalId: target ?? undefined });
-      } catch (err) {
-        const msg = (err as { message?: string })?.message ?? 'No se pudieron cargar los turnos.';
-        toasts.push(msg, 'danger');
+        await loadBookings();
       } finally {
         loading = false;
       }
@@ -70,19 +121,11 @@
   });
 
   onMount(async () => {
-    try {
-      professionals = await professionalService.list();
-    } catch {
-      // No bloqueante: la agenda funciona aunque falle el filtro de profesionales.
-    }
+    await loadProfessionals();
+    await loadBookings();
+    loading = false;
   });
 
-  function handleSlotClick(slot: TimeSlot) {
-    selectedSlot = slot.start;
-    toasts.push(`Slot ${new Date(slot.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} seleccionado.`, 'info');
-  }
-
-  // Autoajuste: week view si hay ancho suficiente.
   $effect(() => {
     if (typeof window === 'undefined') return;
     const mq = window.matchMedia('(min-width: 900px)');
@@ -94,7 +137,9 @@
     return () => mq.removeEventListener('change', sync);
   });
 
-  const bookedCount = $derived(bookings.filter((b) => b.status !== 'CANCELLED').length);
+  const slots = $derived(buildSlotsForDay(date));
+  const today = new Date();
+  const bookedCount = $derived(bookings.filter((b) => b.status !== 'CANCELADA').length);
 </script>
 
 <svelte:head>
@@ -141,13 +186,14 @@
 
 <div class="meta">
   <div class="meta__item">
-    <span class="meta__label">Turnos del día</span>
-    <span class="meta__value">{bookedCount}</span>
+    <span class="meta__label">Fecha</span>
+    <span class="meta__value">{toISODate(date)}{isSameDay(date, today) ? ' · Hoy' : ''}</span>
   </div>
   <div class="meta__legend">
     <span class="legend"><span class="legend__dot legend__dot--available"></span>Disponible</span>
     <span class="legend"><span class="legend__dot legend__dot--booked"></span>Ocupado</span>
     <span class="legend"><span class="legend__dot legend__dot--selected"></span>Seleccionado</span>
+    <span class="legend"><span class="legend__dot legend__dot--out"></span>Pasado</span>
   </div>
 </div>
 
@@ -156,10 +202,13 @@
 {:else}
   <Calendar
     {date}
-    {bookings}
+    {slots}
     {view}
     {selectedSlot}
-    onSlotClick={handleSlotClick}
+    onSlotClick={(slot) => {
+      if (slot.state === 'BOOKED' || slot.state === 'OUT_OF_HOURS') return;
+      selectedSlot = slot.start;
+    }}
   />
 {/if}
 
@@ -280,7 +329,7 @@
 
   .meta__value {
     font-family: $font-display;
-    font-size: $fs-2xl;
+    font-size: $fs-md;
     font-weight: $fw-semibold;
     color: $plum;
     font-variant-numeric: tabular-nums;
@@ -315,5 +364,8 @@
   }
   .legend__dot--selected {
     background: $plum;
+  }
+  .legend__dot--out {
+    background: $border;
   }
 </style>

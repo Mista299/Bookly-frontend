@@ -1,13 +1,15 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { auth } from '$lib/stores/auth';
-  import { LayoutDashboard, CalendarDays, Scissors, UserRound, Settings, LogOut, BookOpen } from 'lucide-svelte';
+  import { LayoutDashboard, CalendarDays, Scissors, UserRound, Settings, LogOut, BookOpen, Users, FileClock } from 'lucide-svelte';
   import { goto } from '$app/navigation';
 
   const items = [
     { href: '/admin', label: 'Resumen', icon: LayoutDashboard, exact: true },
     { href: '/admin/services', label: 'Servicios', icon: Scissors },
     { href: '/admin/professionals', label: 'Profesionales', icon: UserRound },
+    { href: '/admin/users', label: 'Usuarios', icon: Users },
+    { href: '/admin/audit', label: 'Auditoría', icon: FileClock },
     { href: '/admin/agenda', label: 'Agenda', icon: CalendarDays },
     { href: '/admin/settings', label: 'Configuración', icon: Settings }
   ];

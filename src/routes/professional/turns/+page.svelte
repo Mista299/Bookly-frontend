@@ -2,14 +2,32 @@
   import PageHead from '$lib/components/PageHead.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import Modal from '$lib/components/Modal.svelte';
+  import Textarea from '$lib/components/Textarea.svelte';
+  import Button from '$lib/components/Button.svelte';
   import { bookingService } from '$lib/services/booking';
   import { toasts } from '$lib/stores/toasts';
+  import { auth } from '$lib/stores/auth';
+  import { formatApiError } from '$lib/services/errors';
   import { onMount } from 'svelte';
-  import type { Booking } from '$lib/types/booking';
+  import type { Booking, BookingStatus } from '$lib/types/booking';
+  import { fmtTime, parseLocal, localDateTimeMinusNow } from '$lib/utils/date';
+
+  const BOOKING_MIN_ADVANCE_MINUTES = 120;
 
   let bookings = $state<Booking[]>([]);
   let loading = $state(true);
-  let statusFilter = $state<'ALL' | 'CONFIRMED' | 'PENDING' | 'CANCELLED'>('ALL');
+  let statusFilter = $state<'ALL' | BookingStatus>('ALL');
+  let cancelOpen = $state(false);
+  let cancelReason = $state('');
+  let cancellingId = $state<string | null>(null);
+  let cancelling = $state(false);
+
+  const filters: Array<{ id: 'ALL' | BookingStatus; label: string }> = [
+    { id: 'ALL', label: 'Todos' },
+    { id: 'CONFIRMADA', label: 'Confirmados' },
+    { id: 'CANCELADA', label: 'Cancelados' }
+  ];
 
   const filtered = $derived(
     statusFilter === 'ALL' ? bookings : bookings.filter((b) => b.status === statusFilter)
@@ -18,39 +36,86 @@
   const grouped = $derived.by(() => {
     const map = new Map<string, Booking[]>();
     for (const b of filtered) {
-      const key = new Date(b.startTime).toISOString().slice(0, 10);
+      const d = parseLocal(b.startTime);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const list = map.get(key) ?? [];
       list.push(b);
       map.set(key, list);
     }
+    for (const list of map.values()) {
+      list.sort((a, b) => parseLocal(a.startTime).getTime() - parseLocal(b.startTime).getTime());
+    }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   });
 
-  onMount(async () => {
+  function canCancel(b: Booking): boolean {
+    if (b.status === 'CANCELADA') return false;
+    return localDateTimeMinusNow(b.startTime) >= BOOKING_MIN_ADVANCE_MINUTES;
+  }
+
+  async function load() {
+    const authState = $auth;
+    if (!authState.user) {
+      loading = false;
+      return;
+    }
     try {
-      bookings = await bookingService.list({ date: new Date().toISOString().slice(0, 10) });
+      bookings = await bookingService.listForProfessional(authState.user.id);
     } catch (err) {
-      const msg = (err as { message?: string })?.message ?? 'No se pudieron cargar los turnos.';
-      toasts.push(msg, 'danger');
+      toasts.push(formatApiError(err, 'No se pudieron cargar los turnos.'), 'danger');
     } finally {
       loading = false;
     }
-  });
-
-  function fmtTime(iso: string) {
-    return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function fmtGroup(iso: string) {
-    return new Date(iso).toLocaleDateString('es-ES', {
+  onMount(load);
+
+  function fmtGroup(iso: string): string {
+    return parseLocal(iso).toLocaleDateString('es-ES', {
       weekday: 'long',
       day: 'numeric',
       month: 'long'
     });
   }
 
-  function statusLabel(s: Booking['status']) {
-    return s === 'CONFIRMED' ? 'Confirmado' : s === 'PENDING' ? 'Pendiente' : 'Cancelado';
+  function statusLabel(s: BookingStatus): string {
+    if (s === 'CONFIRMADA') return 'Confirmada';
+    if (s === 'COMPLETED') return 'Completada';
+    if (s === 'CANCELADA') return 'Cancelada';
+    if (s === 'RESCHEDULED') return 'Reprogramada';
+    return s;
+  }
+
+  function openCancel(b: Booking) {
+    cancellingId = b.id;
+    cancelReason = '';
+    cancelOpen = true;
+  }
+
+  function closeCancel() {
+    cancelOpen = false;
+    cancellingId = null;
+    cancelReason = '';
+  }
+
+  async function confirmCancel() {
+    if (!cancellingId) return;
+    const reason = cancelReason.trim();
+    if (reason.length > 500) {
+      toasts.push('El motivo no puede superar 500 caracteres.', 'warning');
+      return;
+    }
+    cancelling = true;
+    try {
+      await bookingService.cancel(cancellingId, reason ? { reason } : {});
+      toasts.push('Turno cancelado.', 'success');
+      closeCancel();
+      await load();
+    } catch (err) {
+      toasts.push(formatApiError(err, 'No se pudo cancelar el turno.'), 'danger');
+    } finally {
+      cancelling = false;
+    }
   }
 </script>
 
@@ -66,14 +131,15 @@
   />
 
   <div class="chips" role="tablist">
-    {#each [['ALL', 'Todos'], ['CONFIRMED', 'Confirmados'], ['PENDING', 'Pendientes'], ['CANCELLED', 'Cancelados']] as [val, lbl] (val)}
+    {#each filters as f (f.id)}
       <button
         type="button"
         class="chip"
-        class:is-active={statusFilter === val}
-        onclick={() => (statusFilter = val as typeof statusFilter)}
+        class:is-active={statusFilter === f.id}
+        aria-pressed={statusFilter === f.id}
+        onclick={() => (statusFilter = f.id)}
       >
-        {lbl}
+        {f.label}
       </button>
     {/each}
   </div>
@@ -99,12 +165,23 @@
               <li class="row">
                 <span class="row__time">{fmtTime(b.startTime)}</span>
                 <div class="row__main">
-                  <p class="row__customer">{b.customerName}</p>
-                  <p class="row__service">{b.serviceName}</p>
+                  <p class="row__customer">{b.customerName ?? 'Cliente'}</p>
+                  <p class="row__service">{b.serviceName ?? 'Servicio'}</p>
                 </div>
-                <span class="row__status row__status--{b.status.toLowerCase()}">
-                  {statusLabel(b.status)}
-                </span>
+                <div class="row__aside">
+                  <span class="row__status row__status--{b.status.toLowerCase()}">
+                    {statusLabel(b.status)}
+                  </span>
+                  {#if canCancel(b)}
+                    <button
+                      type="button"
+                      class="row__cancel"
+                      onclick={() => openCancel(b)}
+                    >
+                      Cancelar
+                    </button>
+                  {/if}
+                </div>
               </li>
             {/each}
           </ul>
@@ -113,6 +190,33 @@
     </div>
   {/if}
 </div>
+
+<Modal
+  bind:open={cancelOpen}
+  title="Cancelar turno"
+  description="El cliente recibirá un aviso de la cancelación."
+  size="sm"
+  onClose={closeCancel}
+>
+  <div class="cancel">
+    <p class="cancel__intro">Esta acción no se puede deshacer.</p>
+    <Textarea
+      label="Motivo (opcional)"
+      placeholder="Cuéntale al cliente por qué cancelas…"
+      bind:value={cancelReason}
+      maxlength={500}
+      rows={4}
+    />
+    <p class="cancel__counter">{cancelReason.length} / 500</p>
+  </div>
+
+  {#snippet footer()}
+    <Button variant="ghost" onclick={closeCancel}>Mantener turno</Button>
+    <Button variant="danger" loading={cancelling} onclick={confirmCancel}>
+      Sí, cancelar
+    </Button>
+  {/snippet}
+</Modal>
 
 <style lang="scss">
   @use '$lib/styles/tokens' as *;
@@ -147,7 +251,9 @@
     color: $muted;
     cursor: pointer;
 
-    &:hover { color: $text; }
+    &:hover {
+      color: $text;
+    }
 
     &.is-active {
       background: $plum;
@@ -168,6 +274,7 @@
     color: $muted;
     font-weight: $fw-medium;
     margin-bottom: $space-3;
+    text-transform: capitalize;
   }
 
   .list {
@@ -216,6 +323,13 @@
     margin-top: 2px;
   }
 
+  .row__aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: $space-2;
+  }
+
   .row__status {
     font-size: $fs-xs;
     font-weight: $fw-medium;
@@ -224,6 +338,7 @@
     border: 1px solid $border;
     background: $ivory;
     color: $muted;
+    white-space: nowrap;
   }
 
   .row__status--confirmed {
@@ -240,5 +355,40 @@
 
   .row__status--cancelled {
     opacity: 0.7;
+    color: color.adjust($danger, $lightness: -8%);
+    background: rgba(217, 107, 104, 0.06);
+    border-color: rgba(217, 107, 104, 0.2);
+  }
+
+  .row__cancel {
+    background: transparent;
+    border: 0;
+    color: $plum;
+    font-size: $fs-xs;
+    font-weight: $fw-medium;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      color: color.adjust($plum, $lightness: 8%);
+    }
+  }
+
+  .cancel {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  .cancel__intro {
+    font-size: $fs-sm;
+    color: $muted;
+  }
+
+  .cancel__counter {
+    font-size: $fs-xs;
+    color: $muted;
+    align-self: flex-end;
   }
 </style>

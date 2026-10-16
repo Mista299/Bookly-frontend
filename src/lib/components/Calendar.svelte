@@ -1,58 +1,117 @@
 <script lang="ts">
-  import type { Booking, SlotState, TimeSlot } from '$lib/types/booking';
+  import type { Booking, SlotState } from '$lib/types/booking';
+  import { isSameDay, parseLocal, toLocalDateTime } from '$lib/utils/date';
+
+  interface SlotData {
+    start: string;
+    end: string;
+    state: SlotState;
+    booking?: Booking;
+  }
 
   interface Props {
     date: Date;
-    bookings: Booking[];
-    view: 'day' | 'week';
+    slots: SlotData[];
+    bookings?: Booking[];
+    view?: 'day' | 'week';
+    selectedSlot?: string | null;
+    onSlotClick?: (slot: SlotData) => void;
     workdayStart?: number;
     workdayEnd?: number;
     slotMinutes?: number;
-    selectedSlot?: string | null;
-    onSlotClick?: (slot: TimeSlot) => void;
   }
 
   let {
     date,
-    bookings,
-    view,
+    slots,
+    view = 'day',
+    selectedSlot = null,
+    onSlotClick,
     workdayStart = 8,
     workdayEnd = 20,
-    slotMinutes = 30,
-    selectedSlot = null,
-    onSlotClick
+    slotMinutes = 30
   }: Props = $props();
 
+  const totalSlots = $derived((workdayEnd - workdayStart) * (60 / slotMinutes));
   const slotsPerHour = $derived(60 / slotMinutes);
 
-  function buildDaySlots(day: Date): TimeSlot[] {
-    const out: TimeSlot[] = [];
+  const today = new Date();
+  const isToday = $derived(isSameDay(date, today));
+
+  const nowLineTop = $derived.by(() => {
+    if (!isToday) return null;
+    const startMinutes = workdayStart * 60;
+    const totalMinutes = (workdayEnd - workdayStart) * 60;
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
+    const offset = nowMinutes - startMinutes;
+    if (offset < 0 || offset > totalMinutes) return null;
+    return `${(offset / totalMinutes) * 100}%`;
+  });
+
+  // Build a per-day index for fast lookup by ISO LocalDateTime key.
+  function slotKey(s: SlotData): string {
+    return s.start;
+  }
+
+  function buildDaySlots(day: Date): SlotData[] {
+    const out: SlotData[] = [];
     const base = new Date(day);
     base.setHours(workdayStart, 0, 0, 0);
-    const totalSlots = (workdayEnd - workdayStart) * slotsPerHour;
     for (let i = 0; i < totalSlots; i++) {
       const start = new Date(base.getTime() + i * slotMinutes * 60_000);
       const end = new Date(start.getTime() + slotMinutes * 60_000);
-      const booking = bookings.find((b) => {
-        const bs = new Date(b.startTime);
-        return bs.getTime() === start.getTime() && b.status !== 'CANCELLED';
-      });
-      const state: SlotState = booking ? 'BOOKED' : 'AVAILABLE';
-      out.push({ start: start.toISOString(), end: end.toISOString(), state, booking });
+      const key = toLocalDateTime(start);
+      const found = slots.find((s) => s.start === key);
+      if (found) {
+        out.push(found);
+      } else {
+        out.push({
+          start: key,
+          end: toLocalDateTime(end),
+          state: 'OUT_OF_HOURS'
+        });
+      }
     }
     return out;
   }
 
-  function isSameDay(a: Date, b: Date) {
-    return (
-      a.getFullYear() === b.getFullYear() &&
-      a.getMonth() === b.getMonth() &&
-      a.getDate() === b.getDate()
-    );
+  const daySlots = $derived(buildDaySlots(date));
+
+  function fmtHour(iso: string): string {
+    return parseLocal(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
 
-  const daySlots = $derived(buildDaySlots(date));
-  const today = new Date();
+  function fmtDow(d: Date): string {
+    return d.toLocaleDateString('es-ES', { weekday: 'short' });
+  }
+
+  function fmtDay(d: Date): string {
+    return String(d.getDate());
+  }
+
+  function stateLabel(state: SlotState): string {
+    switch (state) {
+      case 'AVAILABLE':
+        return 'Disponible';
+      case 'BOOKED':
+        return 'Ocupado';
+      case 'NO_SERVICE':
+        return 'Sin servicio';
+      case 'OUT_OF_HOURS':
+        return 'Fuera de horario';
+      case 'SELECTED':
+        return 'Seleccionado';
+    }
+  }
+
+  function isInteractive(state: SlotState): boolean {
+    return state !== 'BOOKED' && state !== 'OUT_OF_HOURS' && state !== 'NO_SERVICE';
+  }
+
+  function clickSlot(slot: SlotData) {
+    if (!isInteractive(slot.state)) return;
+    onSlotClick?.(slot);
+  }
 
   const weekDays = $derived.by(() => {
     const d = new Date(date);
@@ -67,42 +126,8 @@
     });
   });
 
-  const nowLineTop = $derived.by(() => {
-    if (!isSameDay(date, today)) return null;
-    const startOfDay = new Date(date);
-    startOfDay.setHours(workdayStart, 0, 0, 0);
-    const totalSeconds = (today.getTime() - startOfDay.getTime()) / 1000;
-    const workSeconds = (workdayEnd - workdayStart) * 3600;
-    if (totalSeconds < 0 || totalSeconds > workSeconds) return null;
-    const pct = (totalSeconds / workSeconds) * 100;
-    return `${pct}%`;
-  });
-
-  function fmtHour(d: string | Date) {
-    return new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function fmtDow(d: Date) {
-    return d.toLocaleDateString('es-ES', { weekday: 'short' });
-  }
-
-  function fmtDay(d: Date) {
-    return d.getDate();
-  }
-
-  function stateLabel(state: SlotState) {
-    switch (state) {
-      case 'AVAILABLE': return 'Disponible';
-      case 'BOOKED': return 'Ocupado';
-      case 'NO_SERVICE': return 'Sin servicio';
-      case 'OUT_OF_HOURS': return 'Fuera de horario';
-      case 'SELECTED': return 'Seleccionado';
-    }
-  }
-
-  function clickSlot(slot: TimeSlot) {
-    if (slot.state === 'BOOKED') return;
-    onSlotClick?.(slot);
+  function slotsForDay(day: Date): SlotData[] {
+    return buildDaySlots(day);
   }
 </script>
 
@@ -112,57 +137,67 @@
       <span class="day-header__date">
         {date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
       </span>
-      {#if isSameDay(date, today)}
+      {#if isToday}
         <span class="day-header__today">Hoy</span>
       {/if}
     </div>
 
     <div class="day-grid">
-        <div class="day-time-col" aria-hidden="true">
-          {#each Array((workdayEnd - workdayStart) * slotsPerHour) as _, i (i)}
-            <div class="day-time-cell" class:is-hour-mark={i % slotsPerHour === 0}>
-              {#if i % slotsPerHour === 0}
-                <span class="day-time-label">{String(workdayStart + Math.floor(i / slotsPerHour)).padStart(2, '0')}:00</span>
-              {/if}
-            </div>
-          {/each}
-        </div>
-
-        <div class="day-slots-col">
-          {#each daySlots as slot, i (slot.start)}
-            {@const hourLabel = fmtHour(slot.start)}
-            {@const isHourMark = i % slotsPerHour === 0}
-            {@const isSelected = selectedSlot === slot.start}
-            <button
-              type="button"
-              class="day-slot"
-              class:is-hour-mark={isHourMark}
-              class:is-selected={isSelected}
-              class:is-booked={slot.state === 'BOOKED'}
-              disabled={slot.state === 'BOOKED'}
-              aria-pressed={isSelected}
-              aria-label={`${hourLabel} · ${stateLabel(isSelected ? 'SELECTED' : slot.state)}${slot.booking ? ` · ${slot.booking.customerName}` : ''}`}
-              onclick={() => clickSlot(slot)}
-            >
-              {#if slot.booking}
-                <span class="day-slot__bar" aria-hidden="true"></span>
-                <span class="day-slot__time">{hourLabel}</span>
-                <span class="day-slot__customer">{slot.booking.customerName}</span>
-                <span class="day-slot__service">{slot.booking.serviceName}</span>
-              {:else}
-                <span class="day-slot__time">{hourLabel}</span>
-                <span class="day-slot__hint">Toca para seleccionar</span>
-              {/if}
-            </button>
-          {/each}
-
-          {#if nowLineTop}
-            <div class="now-line" style="top: {nowLineTop}" aria-hidden="true">
-              <span class="now-line__dot"></span>
-            </div>
-          {/if}
-        </div>
+      <div class="day-time-col" aria-hidden="true">
+        {#each Array(totalSlots) as _, i (i)}
+          <div class="day-time-cell" class:is-hour-mark={i % slotsPerHour === 0}>
+            {#if i % slotsPerHour === 0}
+              <span class="day-time-label">{String(workdayStart + Math.floor(i / slotsPerHour)).padStart(2, '0')}:00</span>
+            {/if}
+          </div>
+        {/each}
       </div>
+
+      <div class="day-slots-col">
+        {#each daySlots as slot, i (slotKey(slot))}
+          {@const hourLabel = fmtHour(slot.start)}
+          {@const isSelected = selectedSlot === slot.start}
+          {@const booking = slot.booking}
+          <button
+            type="button"
+            class="day-slot"
+            class:is-hour-mark={i % slotsPerHour === 0}
+            class:is-selected={isSelected}
+            class:is-booked={slot.state === 'BOOKED'}
+            class:is-unavailable={!isInteractive(slot.state)}
+            disabled={!isInteractive(slot.state)}
+            aria-pressed={isSelected}
+            aria-label={`${hourLabel} · ${stateLabel(isSelected ? 'SELECTED' : slot.state)}${booking ? ` · ${booking.customerName ?? ''}` : ''}`}
+            onclick={() => clickSlot(slot)}
+          >
+            {#if booking}
+              <span class="day-slot__bar" aria-hidden="true"></span>
+              <span class="day-slot__time">{hourLabel}</span>
+              {#if booking.customerName}
+                <span class="day-slot__customer">{booking.customerName}</span>
+              {/if}
+              {#if booking.serviceName}
+                <span class="day-slot__service">{booking.serviceName}</span>
+              {/if}
+            {:else if slot.state === 'AVAILABLE'}
+              <span class="day-slot__time">{hourLabel}</span>
+              <span class="day-slot__hint">Toca para seleccionar</span>
+            {:else if slot.state === 'SELECTED'}
+              <span class="day-slot__time">{hourLabel}</span>
+              <span class="day-slot__hint">Seleccionado</span>
+            {:else}
+              <span class="day-slot__time">{hourLabel}</span>
+            {/if}
+          </button>
+        {/each}
+
+        {#if nowLineTop}
+          <div class="now-line" style="top: {nowLineTop}" aria-hidden="true">
+            <span class="now-line__dot"></span>
+          </div>
+        {/if}
+      </div>
+    </div>
   </div>
 {:else}
   <div class="cal cal--week" data-od-id="calendar-week">
@@ -178,7 +213,7 @@
 
     <div class="week-grid">
       <div class="week-col week-col--time">
-        {#each Array((workdayEnd - workdayStart) * slotsPerHour) as _, i (i)}
+        {#each Array(totalSlots) as _, i (i)}
           <div class="week-time">
             {#if i % slotsPerHour === 0}
               <span>{String(workdayStart + Math.floor(i / slotsPerHour)).padStart(2, '0')}:00</span>
@@ -186,21 +221,28 @@
           </div>
         {/each}
       </div>
-      {#each weekDays as wd, dayIdx (wd.toISOString())}
-        {@const slots = buildDaySlots(wd)}
-        {@const isToday = isSameDay(wd, today)}
-        <div class="week-col" class:is-today={isToday}>
-          {#each slots as slot (slot.start)}
+      {#each weekDays as wd (wd.toISOString())}
+        {@const daySlotsList = slotsForDay(wd)}
+        {@const dayIsToday = isSameDay(wd, today)}
+        <div class="week-col" class:is-today={dayIsToday}>
+          {#each daySlotsList as slot (slotKey(slot))}
             {@const isSelected = selectedSlot === slot.start}
             <button
               type="button"
               class="week-cell week-cell--{isSelected ? 'selected' : slot.state.toLowerCase()}"
-              aria-label={`${wd.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })} ${fmtHour(slot.start)} ${stateLabel(isSelected ? 'SELECTED' : slot.state)}`}
-              disabled={slot.state === 'BOOKED'}
+              aria-label={`${wd.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })} ${fmtHour(slot.start)} ${stateLabel(isSelected ? 'SELECTED' : slot.state)}${slot.booking ? ` · ${slot.booking.customerName ?? ''}` : ''}`}
+              aria-pressed={isSelected}
+              disabled={!isInteractive(slot.state)}
               onclick={() => clickSlot(slot)}
             >
               {#if slot.booking}
                 <span class="week-cell__dot" aria-hidden="true"></span>
+                <span class="week-cell__time">{fmtHour(slot.start)}</span>
+                {#if slot.booking.customerName}
+                  <span class="week-cell__customer">{slot.booking.customerName}</span>
+                {/if}
+              {:else if slot.state === 'AVAILABLE'}
+                <span class="week-cell__time">{fmtHour(slot.start)}</span>
               {/if}
             </button>
           {/each}
@@ -211,6 +253,8 @@
 {/if}
 
 <style lang="scss">
+  @use '$lib/styles/tokens' as *;
+
   /* =============================================================
      DAY VIEW
      ============================================================= */
@@ -320,8 +364,13 @@
       background: rgba(63, 81, 181, 0.06);
     }
 
+    &.is-unavailable {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
     &:disabled {
-      opacity: 0.7;
+      cursor: not-allowed;
     }
   }
 
@@ -473,6 +522,12 @@
     cursor: pointer;
     transition: background var(--dur-fast) var(--ease-out);
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 2px;
+    color: $text;
 
     &:hover:not(:disabled) {
       background: color.adjust($plum-soft, $lightness: 4%);
@@ -481,6 +536,9 @@
     &.week-cell--booked {
       cursor: not-allowed;
       background: rgba(63, 81, 181, 0.08);
+      color: $plum;
+      flex-direction: column;
+      gap: 2px;
 
       &:hover {
         background: rgba(63, 81, 181, 0.12);
@@ -491,16 +549,34 @@
       background: $plum-soft;
       box-shadow: inset 0 0 0 2px $plum;
     }
+
+    &.week-cell--out_of_hours,
+    &.week-cell--no_service {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
   }
 
   .week-cell__dot {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     width: 6px;
     height: 6px;
     background: $plum;
     border-radius: 50%;
+  }
+
+  .week-cell__time {
+    font-size: 10px;
+    color: $muted;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .week-cell__customer {
+    font-size: 10px;
+    color: $text;
+    font-weight: $fw-medium;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    white-space: nowrap;
   }
 </style>

@@ -4,17 +4,17 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { bookingService } from '$lib/services/booking';
   import { toasts } from '$lib/stores/toasts';
+  import { auth } from '$lib/stores/auth';
+  import { formatApiError } from '$lib/services/errors';
   import { onMount } from 'svelte';
-  import type { Booking } from '$lib/types/booking';
+  import type { Booking, TimeSlot } from '$lib/types/booking';
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { toLocalDateTime, isSameDay, parseLocal } from '$lib/utils/date';
 
   let date = $state(new Date());
   let bookings = $state<Booking[]>([]);
   let loading = $state(true);
-
-  function toISODate(d: Date) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
+  let view = $state<'day' | 'week'>('day');
 
   function shiftDays(days: number) {
     const d = new Date(date);
@@ -22,41 +22,75 @@
     date = d;
   }
 
-  function fmtDate(d: Date) {
-    return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  }
-
   async function load() {
+    const authState = $auth;
+    if (!authState.user) {
+      loading = false;
+      return;
+    }
     loading = true;
     try {
-      bookings = await bookingService.list({ date: toISODate(date) });
+      bookings = await bookingService.listForProfessional(authState.user.id);
     } catch (err) {
-      const msg = (err as { message?: string })?.message ?? 'No se pudieron cargar los turnos.';
-      toasts.push(msg, 'danger');
+      toasts.push(formatApiError(err, 'No se pudieron cargar los turnos.'), 'danger');
     } finally {
       loading = false;
     }
   }
 
-  onMount(load);
-
-  $effect(() => {
-    void date;
-    if (typeof window !== 'undefined') load();
+  onMount(() => {
+    void load();
+    if (typeof window !== 'undefined') {
+      const mq = window.matchMedia('(min-width: 900px)');
+      const sync = () => {
+        view = mq.matches ? 'week' : 'day';
+      };
+      sync();
+      mq.addEventListener('change', sync);
+      return () => mq.removeEventListener('change', sync);
+    }
   });
 
-  // Vista auto-switch: week en desktop, day en mobile.
-  let view = $state<'day' | 'week'>('day');
-  $effect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(min-width: 900px)');
-    const sync = () => {
-      view = mq.matches ? 'week' : 'day';
-    };
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  });
+  const dayBookings = $derived(
+    bookings
+      .filter((b) => b.status !== 'CANCELADA' && isSameDay(parseLocal(b.startTime), date))
+      .sort((a, b) => parseLocal(a.startTime).getTime() - parseLocal(b.startTime).getTime())
+  );
+
+  function buildSlots(target: Date): TimeSlot[] {
+    const out: TimeSlot[] = [];
+    const workdayStart = 8;
+    const workdayEnd = 20;
+    const slotMinutes = 30;
+    const base = new Date(target);
+    base.setHours(workdayStart, 0, 0, 0);
+    const totalSlots = (workdayEnd - workdayStart) * (60 / slotMinutes);
+    for (let i = 0; i < totalSlots; i++) {
+      const start = new Date(base.getTime() + i * slotMinutes * 60_000);
+      const end = new Date(start.getTime() + slotMinutes * 60_000);
+      const booking = dayBookings.find((b) => {
+        const bs = parseLocal(b.startTime);
+        return bs.getTime() === start.getTime();
+      });
+      if (booking) {
+        out.push({
+          start: toLocalDateTime(start),
+          end: toLocalDateTime(end),
+          state: 'BOOKED',
+          booking
+        });
+      } else {
+        out.push({
+          start: toLocalDateTime(start),
+          end: toLocalDateTime(end),
+          state: 'AVAILABLE'
+        });
+      }
+    }
+    return out;
+  }
+
+  const slots = $derived(buildSlots(date));
 </script>
 
 <svelte:head>
@@ -74,7 +108,9 @@
     <button type="button" class="nav-btn" aria-label="Día anterior" onclick={() => shiftDays(-1)}>
       <ChevronLeft size={18} />
     </button>
-    <span class="toolbar__label">{fmtDate(date)}</span>
+    <span class="toolbar__label">
+      {date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+    </span>
     <button type="button" class="nav-btn" aria-label="Día siguiente" onclick={() => shiftDays(1)}>
       <ChevronRight size={18} />
     </button>
@@ -85,7 +121,7 @@
   {:else}
     <Calendar
       {date}
-      {bookings}
+      {slots}
       {view}
       onSlotClick={() => {}}
     />

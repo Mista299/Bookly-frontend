@@ -1,5 +1,5 @@
 import { apiFetch } from './api';
-import type { Service, ServiceInput, ServiceStatus } from '$lib/types/service';
+import type { Service, ServiceInput, ProfessionalSummary } from '$lib/types/service';
 
 export const serviceService = {
   list(category?: string): Promise<Service[]> {
@@ -9,6 +9,10 @@ export const serviceService = {
 
   get(id: string): Promise<Service> {
     return apiFetch<Service>(`/servicios/${id}`);
+  },
+
+  listProfessionals(serviceId: string): Promise<ProfessionalSummary[]> {
+    return apiFetch<ProfessionalSummary[]>(`/servicios/${serviceId}/profesionales`);
   },
 
   create(input: ServiceInput): Promise<Service> {
@@ -25,7 +29,7 @@ export const serviceService = {
     });
   },
 
-  async setStatus(id: string, status: ServiceStatus, current: Service): Promise<Service> {
+  async setStatus(id: string, status: Service['status'], current: Service): Promise<Service> {
     return this.update(id, {
       name: current.name,
       description: current.description,

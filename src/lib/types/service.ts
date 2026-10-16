@@ -20,3 +20,10 @@ export type ServiceInput = {
   price: number;
   status?: ServiceStatus;
 };
+
+export interface ProfessionalSummary {
+  id: string;
+  fullName: string;
+  specialty: string;
+  email?: string;
+}
