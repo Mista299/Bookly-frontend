@@ -100,7 +100,19 @@ export async function apiFetch<T>(
   const payload = await safeJson(response);
 
   if (response.status === 401) {
-    if (!silent401) {
+    // Solo cerramos la sesion si esta peticion se envio con un token que
+    // sigue siendo el vigente. Hay tres casos en los que NO hay que cerrar:
+    //
+    // 1. La peticion se envio sin token (p. ej. un onMount que se dispara
+    //    durante el login, antes de que se guarde el token).
+    // 2. El token de la peticion ya no es el actual (la sesion se renovo
+    //    mientras la peticion estaba en vuelo): el 401 es obsoleto.
+    // 3. silent401: el llamador ya sabe que va a recibir un 401.
+    const currentToken = tokenStore.get();
+    const sentWithCurrentToken = !!token && token === currentToken;
+    const isStale = !token || !sentWithCurrentToken;
+
+    if (!silent401 && !isStale) {
       tokenStore.clear();
       if (browser) {
         window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));

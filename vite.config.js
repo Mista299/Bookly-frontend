@@ -15,7 +15,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:18080',
+        // 18080 = backend en Docker (compose). 8080 = backend corrido con `java -jar` en local.
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:18080',
         changeOrigin: true,
         secure: false
       }

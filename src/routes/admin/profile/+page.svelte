@@ -18,6 +18,7 @@
   let newPwd = $state('');
   let repeatPwd = $state('');
   let pwdErrors = $state<Record<string, string>>({});
+  let pwdServerError = $state<string | null>(null);
   let savingPwd = $state(false);
 
   let mfaStatus = $state<MfaRecoveryStatusResponse | null>(null);
@@ -60,6 +61,7 @@
     newPwd = '';
     repeatPwd = '';
     pwdErrors = {};
+    pwdServerError = null;
     showChangePwd = true;
   }
 
@@ -77,14 +79,24 @@
   async function submitChangePwd() {
     if (!validatePwd()) return;
     savingPwd = true;
+    pwdServerError = null;
     try {
       await auth.changePassword({ currentPassword: currentPwd, newPassword: newPwd });
       toasts.push('Contraseña actualizada.', 'success');
       showChangePwd = false;
     } catch (err) {
-      const msg = isApiError(err)
-        ? formatApiError(err, 'No se pudo cambiar la contraseña.')
-        : 'No se pudo cambiar la contraseña.';
+      // El backend responde 401 con INVALID_CREDENTIALS cuando la contraseña
+      // actual no es la correcta. No es una sesión expirada: lo mostramos
+      // como error del formulario.
+      const isWrongCurrent = isApiError(err) && err.errorCode === 'INVALID_CREDENTIALS';
+      const msg = isWrongCurrent
+        ? 'La contraseña actual es incorrecta.'
+        : isApiError(err)
+          ? formatApiError(err, 'No se pudo cambiar la contraseña.')
+          : 'No se pudo cambiar la contraseña.';
+      // El error se muestra dentro del modal (donde el usuario está mirando)
+      // además del toast: un toast se pasa desapercibido con facilidad.
+      pwdServerError = msg;
       toasts.push(msg, 'danger');
     } finally {
       savingPwd = false;
@@ -271,6 +283,9 @@
   onClose={() => (showChangePwd = false)}
 >
   <div class="form-stack">
+    {#if pwdServerError}
+      <p class="form-error" role="alert">{pwdServerError}</p>
+    {/if}
     <Field
       label="Contraseña actual"
       type="password"

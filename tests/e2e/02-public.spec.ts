@@ -26,7 +26,7 @@ test.describe('Páginas públicas (sin auth)', () => {
     await page.waitForTimeout(500);
     await page.getByLabel('Nombre completo').fill('Test User');
     await page.getByLabel('Correo').fill('correo-malo');
-    await page.getByLabel('Contraseña').fill('Bookly1234!'); // contraseña fuerte
+    await page.getByLabel('Contraseña').fill('Admin123!Pass'); // contraseña fuerte
     await page.getByRole('button', { name: 'Crear cuenta' }).click();
     // El email inválido dispara error inline
     await expect(page.getByText('Introduce un correo válido.')).toBeVisible({ timeout: 5_000 });
@@ -52,7 +52,7 @@ test.describe('Páginas públicas (sin auth)', () => {
     await page.waitForLoadState('networkidle', { timeout: 15_000 });
     await page.getByLabel('Nombre completo').fill('E2E User');
     await page.getByLabel('Correo').fill(email);
-    await page.getByLabel('Contraseña').fill('Bookly1234!');
+    await page.getByLabel('Contraseña').fill('Admin123!Pass');
     await page.getByRole('button', { name: 'Crear cuenta' }).click();
     await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
   });

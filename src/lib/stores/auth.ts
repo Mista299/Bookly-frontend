@@ -247,7 +247,14 @@ function createAuthStore() {
   }
 
   async function changePassword(req: ChangePasswordRequest): Promise<void> {
-    await apiFetch<void>('/auth/password', { method: 'PUT', json: req });
+    // silent401: el backend responde 401 cuando la contraseña ACTUAL es
+    // incorrecta. Eso no es una sesión expirada, así que no debe cerrar la
+    // sesión ni expulsar al usuario de la aplicación.
+    await apiFetch<void>('/auth/password', {
+      method: 'PUT',
+      json: req,
+      silent401: true
+    });
   }
 
   function logout() {

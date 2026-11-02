@@ -23,12 +23,12 @@
     services.filter((s) => {
       const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
       const q = query.trim().toLowerCase();
-      const desc = s.description?.toLowerCase() ?? '';
-      const matchesQuery =
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q) ||
-        desc.includes(q);
+      // name/category pueden venir null desde el backend: sin fallback la
+      // búsqueda revienta con "Cannot read properties of null".
+      const name = (s.name ?? '').toLowerCase();
+      const category = (s.category ?? '').toLowerCase();
+      const desc = (s.description ?? '').toLowerCase();
+      const matchesQuery = !q || name.includes(q) || category.includes(q) || desc.includes(q);
       return matchesStatus && matchesQuery;
     })
   );

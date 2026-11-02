@@ -6,6 +6,10 @@ export function formatApiError(err: unknown, fallback = 'Algo salió mal.'): str
   if (e.errorCode === 'EMAIL_ALREADY_REGISTERED')
     return 'Este correo ya está registrado.';
   if (e.errorCode === 'INVALID_CREDENTIALS') return 'Credenciales inválidas.';
+  if (e.errorCode === 'INVALID_PASSWORD')
+    return 'La contraseña actual es incorrecta.';
+  if (e.errorCode === 'PASSWORD_MISMATCH')
+    return 'Las contraseñas nuevas no coinciden.';
   if (e.errorCode === 'ACCOUNT_LOCKED')
     return `Cuenta bloqueada. Espera ${e.lockMinutes ?? 15} minutos antes de volver a intentarlo.`;
   if (e.errorCode === 'PLATFORM_ALREADY_CONFIGURED')

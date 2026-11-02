@@ -14,19 +14,24 @@
   let query = $state('');
   let category = $state<string>('Todas');
 
-  const categories = $derived(['Todas', ...new Set(services.map((s) => s.category))]);
+  const categories = $derived([
+    'Todas',
+    ...new Set(services.map((s) => s.category).filter((c): c is string => !!c))
+  ]);
 
   const filtered = $derived(
     services
       .filter((s) => s.status === 'ACTIVO')
       .filter((s) => {
         const q = query.trim().toLowerCase();
-        const matchQuery =
-          !q ||
-          s.name.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q) ||
-          s.category.toLowerCase().includes(q);
-        const matchCategory = category === 'Todas' || s.category === category;
+        // El backend puede devolver description/category nulas (p. ej. servicios
+        // creados sin descripción): sin este fallback la búsqueda revienta con
+        // "Cannot read properties of null (reading 'toLowerCase')".
+        const name = (s.name ?? '').toLowerCase();
+        const description = (s.description ?? '').toLowerCase();
+        const cat = (s.category ?? '').toLowerCase();
+        const matchQuery = !q || name.includes(q) || description.includes(q) || cat.includes(q);
+        const matchCategory = category === 'Todas' || (s.category ?? '') === category;
         return matchQuery && matchCategory;
       })
   );

@@ -1,0 +1,20 @@
+{
+  "name": "BOOKLY — Reservas y agendas",
+  "short_name": "BOOKLY",
+  "description": "Gestión de reservas, servicios y agendas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8f6f2",
+  "theme_color": "#382c46",
+  "lang": "es-ES",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

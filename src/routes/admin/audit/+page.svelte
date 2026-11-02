@@ -178,29 +178,33 @@
       {/each}
     </ul>
 
-    {#if totalPages > 1}
+    {#if data && data.content.length > 0}
       <nav class="pager" aria-label="Paginación">
-        <Button
-          variant="secondary"
-          size="sm"
-          onclick={prevPage}
-          disabled={page === 0 || loading}
-          aria-label="Página anterior"
-        >
-          <ChevronLeft size={14} /> Anterior
-        </Button>
+        {#if totalPages > 1}
+          <Button
+            variant="secondary"
+            size="sm"
+            onclick={prevPage}
+            disabled={page === 0 || loading}
+            aria-label="Página anterior"
+          >
+            <ChevronLeft size={14} /> Anterior
+          </Button>
+        {/if}
         <p class="pager__info" aria-live="polite">
           Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
         </p>
-        <Button
-          variant="secondary"
-          size="sm"
-          onclick={nextPage}
-          disabled={!data || page >= data.totalPages - 1 || loading}
-          aria-label="Página siguiente"
-        >
-          Siguiente <ChevronRight size={14} />
-        </Button>
+        {#if totalPages > 1}
+          <Button
+            variant="secondary"
+            size="sm"
+            onclick={nextPage}
+            disabled={!data || page >= data.totalPages - 1 || loading}
+            aria-label="Página siguiente"
+          >
+            Siguiente <ChevronRight size={14} />
+          </Button>
+        {/if}
       </nav>
     {/if}
   {/if}

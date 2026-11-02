@@ -1,29 +1,25 @@
 import { test, expect } from '@playwright/test';
-import { clearAuth, loginAdmin, completeMfaSetup, resetMfaForUser } from './helpers';
+import { clearAuth, loginAdmin } from './helpers';
 
 test.describe('Admin → Usuarios / Roles / Auditoría', () => {
-  test.beforeEach(async () => {
-    await resetMfaForUser('admin@bookly.com');
-  });
 
   test('buscar usuarios lista los del seed', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/users');
-    await page.getByRole('searchbox', { name: 'Buscar' }).fill('cliente');
-    // debounce 280ms
-    await page.waitForTimeout(500);
-    await expect(page.getByText('María Restrepo').first()).toBeVisible();
-    await expect(page.getByText('Juan Pérez').first()).toBeVisible();
-    await expect(page.getByText('Ana Sánchez').first()).toBeVisible();
-    await expect(page.getByText('Pedro Gómez').first()).toBeVisible();
+
+    // La búsqueda del backend ordena por nombre completo y limita a 10
+    // resultados, así que cada usuario del seed se localiza por su nombre.
+    for (const nombre of ['María Restrepo', 'Juan Pérez', 'Ana Sánchez', 'Pedro Gómez']) {
+      await page.getByRole('searchbox', { name: 'Buscar' }).fill(nombre);
+      await page.waitForTimeout(600); // debounce 280ms + red
+      await expect(page.getByText(nombre).first()).toBeVisible({ timeout: 8_000 });
+    }
   });
 
   test('búsqueda vacía muestra estado vacío', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/users');
     await page.getByRole('searchbox', { name: 'Buscar' }).fill('zzzzzzz-no-existe');
     await page.waitForTimeout(1500);
@@ -33,7 +29,6 @@ test.describe('Admin → Usuarios / Roles / Auditoría', () => {
   test('modal de cambio de rol abre', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/users');
     await page.waitForLoadState('networkidle');
     await page.getByRole('searchbox', { name: 'Buscar' }).fill('juan');
@@ -49,7 +44,6 @@ test.describe('Admin → Usuarios / Roles / Auditoría', () => {
   test('reset password muestra la contraseña temporal', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/users');
     await page.waitForLoadState('networkidle');
     await page.getByRole('searchbox', { name: 'Buscar' }).fill('juan');
@@ -62,7 +56,6 @@ test.describe('Admin → Usuarios / Roles / Auditoría', () => {
   test('auditoría muestra las entradas del seed', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/audit');
     await page.waitForLoadState('networkidle');
     // Filtros visibles
@@ -81,7 +74,6 @@ test.describe('Admin → Usuarios / Roles / Auditoría', () => {
   test('auditoría paginación funciona', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/audit');
     await page.waitForLoadState('networkidle');
     // Llenar filtros y aplicar

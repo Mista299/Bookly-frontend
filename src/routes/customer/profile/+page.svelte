@@ -14,6 +14,7 @@
   let newPwd = $state('');
   let repeatPwd = $state('');
   let pwdErrors = $state<Record<string, string>>({});
+  let pwdServerError = $state<string | null>(null);
   let saving = $state(false);
 
   function openPwd() {
@@ -21,6 +22,7 @@
     newPwd = '';
     repeatPwd = '';
     pwdErrors = {};
+    pwdServerError = null;
     showPwd = true;
   }
 
@@ -43,9 +45,16 @@
       toasts.push('Contraseña actualizada.', 'success');
       showPwd = false;
     } catch (err) {
-      const msg = isApiError(err)
-        ? formatApiError(err, 'No se pudo cambiar la contraseña.')
-        : 'No se pudo cambiar la contraseña.';
+      // El backend responde 401 con INVALID_CREDENTIALS cuando la contraseña
+      // ACTUAL es incorrecta. No es una sesión expirada: lo mostramos como
+      // error del formulario, no como cierre de sesión.
+      const isWrongCurrent = isApiError(err) && err.errorCode === 'INVALID_CREDENTIALS';
+      const msg = isWrongCurrent
+        ? 'La contraseña actual es incorrecta.'
+        : isApiError(err)
+          ? formatApiError(err, 'No se pudo cambiar la contraseña.')
+          : 'No se pudo cambiar la contraseña.';
+      pwdServerError = msg;
       toasts.push(msg, 'danger');
     } finally {
       saving = false;
@@ -110,6 +119,9 @@
   onClose={() => (showPwd = false)}
 >
   <div class="form-stack">
+    {#if pwdServerError}
+      <p class="form-error" role="alert">{pwdServerError}</p>
+    {/if}
     <Field
       label="Contraseña actual"
       type="password"
@@ -233,6 +245,12 @@
     flex-wrap: wrap;
     gap: $space-3;
     justify-content: flex-end;
+  }
+
+  .form-error {
+    font-size: $fs-sm;
+    color: $danger;
+    margin: 0;
   }
 
   .form-stack {

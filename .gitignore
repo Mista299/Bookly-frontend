@@ -29,3 +29,14 @@ dist-ssr
 # Playwright
 test-results/
 playwright-report/
+.playwright-mcp/
+
+# Capacitor / Android
+android/
+build/
+.capacitor/
+*.keystore
+key.properties
+
+# Build estático (adapter-static)
+build/

@@ -1,15 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { clearAuth, loginAdmin, completeMfaSetup, resetMfaForUser } from './helpers';
+import { clearAuth, loginAdmin } from './helpers';
 
 test.describe('Admin → Profesionales', () => {
-  test.beforeEach(async () => {
-    await resetMfaForUser('admin@bookly.com');
-  });
 
   test('lista muestra los 3 profesionales del seed', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/professionals');
     await expect(page.getByText('Cristian López')).toBeVisible();
     await expect(page.getByText('Laura Martínez')).toBeVisible();
@@ -19,7 +15,6 @@ test.describe('Admin → Profesionales', () => {
   test('cada profesional muestra los servicios asignados', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/professionals');
     // Cristian: Peluquería y barbería → servicios Corte, Peinado, Tinte
     const card = page.locator(':has-text("Cristian López")').first();
@@ -32,7 +27,6 @@ test.describe('Admin → Profesionales', () => {
   test('alta de profesional valida email y password', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/professionals');
     await page.getByRole('button', { name: /Añadir profesional/ }).first().click();
     // Form visible
@@ -49,16 +43,15 @@ test.describe('Admin → Profesionales', () => {
   test('alta de profesional válida lo agrega a la lista', async ({ page }) => {
     await clearAuth(page);
     await loginAdmin(page);
-    if (page.url().includes("/login/mfa-setup")) { await completeMfaSetup(page); await page.waitForURL(/admin/, { timeout: 15_000 }); }
     await page.goto('/admin/professionals');
     const email = `pro+e2e+${Date.now()}@bookly.test`;
     await page.getByRole('button', { name: /Añadir profesional/ }).first().click();
     await page.getByLabel('Nombre completo').fill('Pro E2E New');
     await page.getByLabel('Correo').fill(email);
-    await page.getByLabel('Contraseña inicial').fill('Bookly1234!');
+    await page.getByLabel('Contraseña inicial').fill('Admin123!Pass');
     await page.getByLabel('Especialidad').fill('Peluquería');
     await page.getByRole('button', { name: 'Añadir al equipo' }).click();
     await expect(page.getByText('Profesional añadido.')).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByText('Pro E2E New')).toBeVisible();
+    await expect(page.getByText('Pro E2E New').first()).toBeVisible();
   });
 });

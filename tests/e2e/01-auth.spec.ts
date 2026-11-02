@@ -45,7 +45,7 @@ test.describe('Auth y routing público', () => {
     await page.goto('/login');
     await page.waitForLoadState('networkidle', { timeout: 15_000 });
     await page.getByLabel('Correo electrónico').fill('not-an-email');
-    await page.getByLabel('Contraseña').fill('Bookly1234!');
+    await page.getByLabel('Contraseña').fill('Admin123!Pass');
     await page.getByRole('button', { name: 'Entrar' }).click();
     await expect(page.getByText('Introduce un correo válido.')).toBeVisible({ timeout: 5_000 });
   });

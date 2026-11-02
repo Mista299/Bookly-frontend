@@ -7,10 +7,10 @@ const FRONTEND = 'http://127.0.0.1:5173';
 export type Role = 'admin' | 'admin-mfa' | 'professional' | 'customer';
 
 const CREDS: Record<Role, { email: string; password: string }> = {
-  admin:         { email: 'admin@bookly.com',       password: 'Bookly1234!' },
-  'admin-mfa':   { email: 'admin2@bookly.com',      password: 'Bookly1234!' },
-  professional:  { email: 'pro.cristian@bookly.com', password: 'Bookly1234!' },
-  customer:      { email: 'cliente.maria@bookly.com',password: 'Bookly1234!' },
+  admin:         { email: 'admin@bookly.local',        password: 'Admin123!Pass' },
+  'admin-mfa':   { email: 'admin@bookly.local',        password: 'Admin123!Pass' },
+  professional:  { email: 'prof.cristian@bookly.local',password: 'Prof123!Pass' },
+  customer:      { email: 'cliente.maria@bookly.local', password: 'Client123!Pass' },
 };
 
 export async function clearAuth(page: Page) {
@@ -40,12 +40,121 @@ export async function expectOnPath(page: Page, path: RegExp, timeout = 10_000) {
   await expect(page).toHaveURL(path, { timeout });
 }
 
+/**
+ * Login de admin que resuelve el segundo factor por las dos vías (setup y
+ * verify). Es idempotente y deja al usuario en /admin con sesión activa.
+ */
 export async function loginAdmin(page: Page) {
-  // admin@bookly.com no tiene MFA en seed → entra a mfa-setup
   await loginUI(page, 'admin');
-  // La primera vez el admin NO está enrolado, va a /login/mfa-setup.
-  // Si ya estaba enrolado (re-run del test), va a /login/mfa directamente.
   await page.waitForURL(/\/login\/(mfa|mfa-setup|admin)/, { timeout: 15_000 });
+
+  if (/\/admin/.test(page.url())) return; // el backend devolvió accessToken
+
+  if (/\/login\/mfa-setup/.test(page.url())) {
+    await completeMfaSetup(page);
+    await page.waitForURL(/\/admin/, { timeout: 15_000 });
+    return;
+  }
+
+  // /login/mfa → recuperamos el secret enrolado de la base de datos.
+  const secret = await readEnrolledSecret('admin@bookly.local');
+  if (!secret) {
+    throw new Error(
+      'El admin está enrolado en MFA pero no se pudo leer el secret. ' +
+        "Ejecuta resetMfaForUser('admin@bookly.local') antes del login."
+    );
+  }
+  await verifyMfaCode(page, secret);
+  await page.waitForURL(/\/admin/, { timeout: 15_000 });
+}
+
+/**
+ * Login completo de admin incluyendo el segundo factor.
+ * - Si el admin no está enrolado → recorre /login/mfa-setup leyendo el secret
+ *   de la pantalla y calculando el TOTP.
+ * - Si ya está enrolado → recorre /login/mfa con el secret conocido.
+ * Devuelve el secret para reutilizarlo en asserts.
+ */
+export async function loginAdminFull(page: Page, knownSecret?: string): Promise<string> {
+  await loginUI(page, 'admin');
+  await page.waitForURL(/\/login\/(mfa|mfa-setup|admin)/, { timeout: 15_000 });
+
+  if (/\/admin/.test(page.url())) {
+    // Ya autenticado (admin sin MFA y backend devolvió accessToken).
+    return knownSecret ?? '';
+  }
+
+  if (/\/login\/mfa-setup/.test(page.url())) {
+    const secret = await completeMfaSetup(page, knownSecret);
+    await page.waitForURL(/\/admin/, { timeout: 15_000 });
+    return secret;
+  }
+
+  // /login/mfa — el secret debe ser conocido de antemano.
+  if (!knownSecret) throw new Error('Admin enrolado: se necesita el secret MFA conocido');
+  await verifyMfaCode(page, knownSecret);
+  await page.waitForURL(/\/admin/, { timeout: 15_000 });
+  return knownSecret;
+}
+
+/**
+ * Lee el secret MFA enrolado de la base de datos y lo descifra.
+ *
+ * El backend guarda el secret cifrado con AES/GCM (ver TotpSecretCipher), con
+ * la clave de `MFA_ENCRYPTION_KEY` en el .env del backend. Los tests necesitan
+ * el secret en claro para calcular el TOTP del endpoint /login/mfa.
+ *
+ * Si no se puede descifrar, devuelve null y el caller resetea el MFA.
+ */
+export async function readEnrolledSecret(email: string): Promise<string | null> {
+  const { exec } = await import('node:child_process');
+
+  const encrypted = await new Promise<string | null>((resolve) => {
+    exec(
+      `docker exec backendcf-db psql -U backendcf -d backendcf -tAc "SELECT mfa_secret_encrypted FROM app_user WHERE email='${email}';" 2>/dev/null`,
+      (err, stdout) => {
+        if (err) return resolve(null);
+        const value = stdout.trim();
+        resolve(value && value !== '' ? value : null);
+      }
+    );
+  });
+  if (!encrypted) return null;
+
+  // Clave de cifrado: .env del backend o variable de entorno.
+  let key = process.env.MFA_ENCRYPTION_KEY ?? '';
+  if (!key) {
+    const { readFileSync } = await import('node:fs');
+    const envPath =
+      process.env.BACKEND_ENV ?? '/home/mista/Escritorio/udea/2026-II/calidad-software/Proyecto-FE/backendcf/.env';
+    try {
+      const m = readFileSync(envPath, 'utf8').match(/^MFA_ENCRYPTION_KEY=(.+)$/m);
+      if (m) key = m[1].trim();
+    } catch {
+      // sin .env legible
+    }
+  }
+  if (!key) return null;
+
+  try {
+    const { createDecipheriv } = await import('node:crypto');
+    const raw = Buffer.from(key, 'base64');
+    if (raw.length !== 32) return null;
+
+    const buf = Buffer.from(encrypted, 'base64');
+    const iv = buf.subarray(0, 12);
+    const ciphertext = buf.subarray(12);
+
+    const decipher = createDecipheriv('aes-256-gcm', raw, iv);
+    decipher.setAuthTag(ciphertext.subarray(ciphertext.length - 16));
+    const plaintext = Buffer.concat([
+      decipher.update(ciphertext.subarray(0, ciphertext.length - 16)),
+      decipher.final()
+    ]).toString('utf8');
+    return plaintext || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function loginAdminMfa(page: Page) {

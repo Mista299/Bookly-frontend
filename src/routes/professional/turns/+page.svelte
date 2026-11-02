@@ -6,6 +6,7 @@
   import Textarea from '$lib/components/Textarea.svelte';
   import Button from '$lib/components/Button.svelte';
   import { bookingService } from '$lib/services/booking';
+  import { enrichBookings } from '$lib/services/bookingNames';
   import { toasts } from '$lib/stores/toasts';
   import { auth } from '$lib/stores/auth';
   import { formatApiError } from '$lib/services/errors';
@@ -60,7 +61,8 @@
       return;
     }
     try {
-      bookings = await bookingService.listForProfessional(authState.user.id);
+      const raw = await bookingService.listForProfessional(authState.user.id);
+      bookings = await enrichBookings(raw);
     } catch (err) {
       toasts.push(formatApiError(err, 'No se pudieron cargar los turnos.'), 'danger');
     } finally {

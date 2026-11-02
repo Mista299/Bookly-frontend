@@ -30,14 +30,14 @@
       icon: FileSearch
     },
     {
-      label: 'Horarios por profesional',
-      description: 'Abre la agenda para revisar la disponibilidad del equipo.',
+      label: 'Agenda del equipo',
+      description: 'Revisa la disponibilidad y los horarios de cada profesional.',
       href: '/admin/agenda',
       icon: CalendarDays
     },
     {
-      label: 'Calendario de plataforma',
-      description: 'Visualiza reservas y eventos en un solo lugar.',
+      label: 'Calendario de reservas',
+      description: 'Visualiza las reservas confirmadas en un solo lugar.',
       href: '/admin/agenda',
       icon: CalendarDays
     }

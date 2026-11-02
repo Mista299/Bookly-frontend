@@ -6,6 +6,7 @@
   import Money from '$lib/components/Money.svelte';
   import { serviceService } from '$lib/services/service';
   import { bookingService } from '$lib/services/booking';
+  import { enrichBookings } from '$lib/services/bookingNames';
   import { toasts } from '$lib/stores/toasts';
   import { auth } from '$lib/stores/auth';
   import { formatApiError } from '$lib/services/errors';
@@ -47,7 +48,8 @@
       return;
     }
     try {
-      bookings = await bookingService.listForCustomer(authState.user.id);
+      const raw = await bookingService.listForCustomer(authState.user.id);
+      bookings = await enrichBookings(raw);
     } catch {
       // No bloqueante en home.
     } finally {
