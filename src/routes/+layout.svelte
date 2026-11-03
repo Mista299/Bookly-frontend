@@ -98,8 +98,18 @@
       networkListener = h;
     });
 
-    // 5) Splash: se oculta cuando la app ya está pintada.
-    void SplashScreen.hide().catch(() => {});
+    // 5) Splash: se oculta cuando la app ya está pintada. Si el primer
+    //    hide falla (el WebView todavía no ha pintado), se reintenta.
+    const hideSplash = async (intentos = 0) => {
+      try {
+        await SplashScreen.hide();
+      } catch {
+        if (intentos < 5) {
+          setTimeout(() => void hideSplash(intentos + 1), 250);
+        }
+      }
+    };
+    void hideSplash();
 
     return () => {
       void backHandler?.remove();
