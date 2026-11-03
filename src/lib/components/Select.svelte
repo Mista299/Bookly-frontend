@@ -90,7 +90,8 @@
   }
 
   .field__required {
-    color: $coral;
+    // $coral no alcanza el contraste AA como texto (2.79:1 sobre blanco).
+    color: $danger;
     margin-left: 2px;
   }
 

@@ -69,7 +69,8 @@
   }
 
   .field__required {
-    color: $coral;
+    // $coral no alcanza el contraste AA como texto (2.79:1 sobre blanco).
+    color: $danger;
     margin-left: 2px;
   }
 
@@ -98,7 +99,7 @@
     border-color: $danger;
 
     &:focus-visible {
-      box-shadow: 0 0 0 3px rgba(217, 107, 104, 0.18);
+      box-shadow: 0 0 0 3px rgba($danger, 0.18);
     }
   }
 

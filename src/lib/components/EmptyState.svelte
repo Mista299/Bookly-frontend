@@ -7,16 +7,30 @@
     icon?: Snippet;
     children?: Snippet;
     action?: Snippet;
+    /**
+     * Nivel del encabezado del título. Un h3 seguido de un h1 rompe la
+     * jerarquía de encabezados (WCAG 1.3.1 / 2.4.6): por defecto se usa h2,
+     * que es el nivel natural justo debajo del h1 de la página.
+     */
+    level?: 2 | 3 | 4;
   }
 
-  let { title, description, icon, children, action }: Props = $props();
+  let { title, description, icon, children, action, level = 2 }: Props = $props();
 </script>
 
 <div class="empty">
   {#if icon}
     <div class="empty__icon" aria-hidden="true">{@render icon()}</div>
   {/if}
-  {#if title}<h3 class="empty__title">{title}</h3>{/if}
+  {#if title}
+    {#if level === 3}
+      <h3 class="empty__title">{title}</h3>
+    {:else if level === 4}
+      <h4 class="empty__title">{title}</h4>
+    {:else}
+      <h2 class="empty__title">{title}</h2>
+    {/if}
+  {/if}
   {#if description}<p class="empty__desc">{description}</p>{/if}
   {#if children}<div class="empty__body">{@render children()}</div>{/if}
   {#if action}<div class="empty__action">{@render action()}</div>{/if}

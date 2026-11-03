@@ -565,13 +565,13 @@
   }
 
   .week-cell__time {
-    font-size: 10px;
+    font-size: $fs-xs;
     color: $muted;
     font-variant-numeric: tabular-nums;
   }
 
   .week-cell__customer {
-    font-size: 10px;
+    font-size: $fs-xs;
     color: $text;
     font-weight: $fw-medium;
     overflow: hidden;

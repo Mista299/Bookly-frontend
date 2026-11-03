@@ -382,8 +382,8 @@
 
   .booking__status--success {
     color: color.adjust($success, $lightness: -8%);
-    background: rgba(94, 159, 122, 0.1);
-    border-color: rgba(94, 159, 122, 0.2);
+    background: rgba($success, 0.1);
+    border-color: rgba($success, 0.2);
   }
 
   .booking__status--info {
@@ -474,7 +474,7 @@
   }
 
   .history__month {
-    font-size: 10px;
+    font-size: $fs-xs;
     text-transform: uppercase;
     letter-spacing: $ls-wide;
     margin-top: 4px;
@@ -509,8 +509,8 @@
 
   .history__status--success {
     color: color.adjust($success, $lightness: -8%);
-    background: rgba(94, 159, 122, 0.1);
-    border-color: rgba(94, 159, 122, 0.2);
+    background: rgba($success, 0.1);
+    border-color: rgba($success, 0.2);
   }
 
   .history__status--info {

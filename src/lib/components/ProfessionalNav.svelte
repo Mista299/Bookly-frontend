@@ -219,7 +219,7 @@
     &:hover {
       color: $danger;
       border-color: color.adjust($danger, $lightness: 25%);
-      background: rgba(217, 107, 104, 0.06);
+      background: rgba($danger, 0.06);
     }
   }
 

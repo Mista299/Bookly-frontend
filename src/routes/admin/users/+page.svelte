@@ -460,7 +460,7 @@
   }
 
   .role-chip--customer {
-    background: rgba(94, 159, 122, 0.1);
+    background: rgba($success, 0.1);
     color: color.adjust($success, $lightness: -8%);
     border-color: rgba(94, 159, 122, 0.22);
   }

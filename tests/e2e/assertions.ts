@@ -196,28 +196,62 @@ export async function expectNoClippedText(page: Page): Promise<void> {
 /** Contraste AA del texto principal contra su fondo. */
 export async function expectTextContrast(page: Page, minRatio = 4.5): Promise<void> {
   const failures = await page.evaluate(() => {
-    function parse(c: string): [number, number, number] {
-      const m = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
-      return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+    type Rgb = [number, number, number];
+
+    function parse(c: string): { rgb: Rgb; a: number } {
+      const m = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+      if (!m) return { rgb: [0, 0, 0], a: 1 };
+      return {
+        rgb: [Number(m[1]), Number(m[2]), Number(m[3])],
+        a: m[4] === undefined ? 1 : Number(m[4])
+      };
     }
-    function lum([r, g, b]: [number, number, number]) {
+
+    function lum(rgb: Rgb): number {
       const f = (v: number) => {
         const s = v / 255;
         return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
       };
-      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]);
     }
-    function bgOf(el: Element): string {
+
+    function ratio(a: Rgb, b: Rgb): number {
+      const l1 = lum(a);
+      const l2 = lum(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    /** Compone un color con alfa sobre un fondo opaco. */
+    function over(fg: Rgb, alpha: number, bg: Rgb): Rgb {
+      return [
+        fg[0] * alpha + bg[0] * (1 - alpha),
+        fg[1] * alpha + bg[1] * (1 - alpha),
+        fg[2] * alpha + bg[2] * (1 - alpha)
+      ];
+    }
+
+    /**
+     * Fondo efectivo de un elemento: se sube por el árbol componiendo las
+     * capas semitransparentes (rgba) sobre el primer fondo opaco.
+     */
+    function effectiveBg(el: Element): Rgb {
+      const layers: { rgb: Rgb; a: number }[] = [];
       let cur: Element | null = el;
       while (cur) {
-        const bg = getComputedStyle(cur).backgroundColor;
-        if (bg && !bg.includes('rgba(0, 0, 0, 0)')) {
-          const p = parse(bg);
-          if (p[0] + p[1] + p[2] > 0) return bg;
+        const bg = parse(getComputedStyle(cur).backgroundColor);
+        if (bg.a > 0) {
+          layers.push(bg);
+          if (bg.a === 1) break;
         }
         cur = cur.parentElement;
       }
-      return 'rgb(255, 255, 255)';
+      // De la capa más externa a la más cercana: se componen en ese orden.
+      let result: Rgb = [255, 255, 255];
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const l = layers[i];
+        result = over(l.rgb, l.a, result);
+      }
+      return result;
     }
 
     const out: { text: string; ratio: number; fg: string; bg: string }[] = [];
@@ -233,14 +267,18 @@ export async function expectTextContrast(page: Page, minRatio = 4.5): Promise<vo
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4) return;
 
-      const fg = s.color;
-      const bg = bgOf(el);
-      const l1 = lum(parse(fg));
-      const l2 = lum(parse(bg));
-      const ratio =
-        (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-      if (ratio < 4.5) {
-        out.push({ text: txt.slice(0, 35), ratio: Number(ratio.toFixed(2)), fg, bg });
+      const fgParsed = parse(s.color);
+      const bg = effectiveBg(el);
+      // El texto también puede tener alfa: se compone sobre el fondo.
+      const fg = fgParsed.a < 1 ? over(fgParsed.rgb, fgParsed.a, bg) : fgParsed.rgb;
+      const cr = ratio(fg, bg);
+      if (cr < 4.5) {
+        out.push({
+          text: txt.slice(0, 35),
+          ratio: Number(cr.toFixed(2)),
+          fg: s.color,
+          bg: `rgb(${bg.map((v) => Math.round(v)).join(',')})`
+        });
       }
     });
     return out.slice(0, 12);

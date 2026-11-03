@@ -160,8 +160,13 @@
   {:else}
     <div class="groups" data-od-id="professional-turns-list">
       {#each grouped as [dateIso, list] (dateIso)}
+        <!--
+          h2 (y no h3): los grupos por día son la sección de primer nivel
+          dentro de la página. Saltar del h1 al h3 rompe la jerarquía de
+          encabezados que usan los lectores de pantalla.
+        -->
         <section class="group">
-          <h3 class="group__title">{fmtGroup(dateIso)}</h3>
+          <h2 class="group__title">{fmtGroup(dateIso)}</h2>
           <ul class="list">
             {#each list as b (b.id)}
               <li class="row">
@@ -277,6 +282,9 @@
     font-weight: $fw-medium;
     margin-bottom: $space-3;
     text-transform: capitalize;
+    // El tamaño lo fija la clase; h2 traería el tamaño global de h2.
+    font-family: $font-body;
+    line-height: $lh-normal;
   }
 
   .list {
@@ -345,8 +353,8 @@
 
   .row__status--confirmed {
     color: color.adjust($success, $lightness: -8%);
-    background: rgba(94, 159, 122, 0.1);
-    border-color: rgba(94, 159, 122, 0.2);
+    background: rgba($success, 0.1);
+    border-color: rgba($success, 0.2);
   }
 
   .row__status--pending {

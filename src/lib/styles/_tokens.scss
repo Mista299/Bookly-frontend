@@ -10,11 +10,19 @@ $ivory: #f8f6f2;
 $white: #ffffff;
 $plum: #382c46;
 $plum-soft: #eee8f1;
+// Coral de marca. Solo se usa como superficie de color o como acento sobre
+// fondos oscuros: como texto sobre blanco NO alcanza el contraste AA
+// (2.79:1), así que para texto de error/atención se usa $danger.
 $coral: #e87c68;
-$success: #5e9f7a;
-$danger: #d96b68;
+// Verde de éxito. #5e9f7a daba 3.13:1 sobre blanco; este tono da 5.58:1
+// sobre blanco y 4.71:1 sobre el fondo verde claro de las pills.
+$success: #417255;
+// Rojo de error. #d96b68 daba 3.43:1 sobre blanco; este tono da 5.31:1.
+$danger: #c03d33;
 $text: #29252d;
-$muted: #817a84;
+// Gris de texto secundario. #817a84 daba 4.16:1 sobre blanco (por debajo de
+// AA); este tono da 5.39:1 sobre blanco y 4.99:1 sobre el fondo marfil.
+$muted: #6f6872;
 $border: #e5e0da;
 
 // Alias semántico (los componentes usan $surface para "fondo de tarjetas/popovers").

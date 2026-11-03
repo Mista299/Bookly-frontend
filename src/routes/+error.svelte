@@ -141,7 +141,7 @@
     }
 
     &[data-accent='danger'] {
-      border-color: rgba(217, 107, 104, 0.32);
+      border-color: rgba($danger, 0.32);
     }
 
     &[data-accent='warn'] {
@@ -166,7 +166,7 @@
   }
 
   .error__card[data-accent='danger'] .error__icon {
-    background: rgba(217, 107, 104, 0.12);
+    background: rgba($danger, 0.12);
     color: $danger;
   }
 
