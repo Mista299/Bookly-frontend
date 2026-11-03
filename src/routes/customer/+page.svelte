@@ -276,6 +276,10 @@
     color: $plum;
     font-weight: $fw-medium;
     transition: gap var(--dur-fast) var(--ease-out);
+    // Objetivo táctil mínimo de 44px (WCAG 2.5.5). El padding no cambia el
+    // aspecto, solo enlarges el área que se puede pulsar.
+    min-height: $touch-target;
+    padding: $space-2 $space-1;
 
     &:hover {
       gap: 10px;

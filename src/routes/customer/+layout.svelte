@@ -57,7 +57,9 @@
 
     @media (max-width: #{$bp-lg - 1px}) {
       padding-left: 0;
-      padding-bottom: var(--nav-h);
+      // La barra inferior incluye el safe-area-bottom; el contenido no debe
+      // quedar tapado por ella.
+      padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
     }
   }
 

@@ -368,4 +368,13 @@
   .legend__dot--out {
     background: $border;
   }
+
+  // Objetivo táctil de 44px en móvil: el icono mantiene su tamaño visual
+  // pero el área que se puede pulsar crece.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .nav-btn {
+      width: $touch-target;
+      height: $touch-target;
+    }
+  }
 </style>

@@ -1,20 +1,54 @@
 {
   "name": "BOOKLY — Reservas y agendas",
   "short_name": "BOOKLY",
-  "description": "Gestión de reservas, servicios y agendas.",
-  "start_url": "/",
-  "scope": "/",
+  "description": "Gestión de reservas, servicios y agendas para salones de belleza.",
+  "id": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait",
   "background_color": "#f8f6f2",
   "theme_color": "#382c46",
   "lang": "es-ES",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "lifestyle"],
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mis citas",
+      "short_name": "Citas",
+      "url": "./customer/agenda"
+    },
+    {
+      "name": "Servicios",
+      "short_name": "Servicios",
+      "url": "./customer/services"
     }
   ]
 }

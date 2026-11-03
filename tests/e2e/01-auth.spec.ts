@@ -5,7 +5,7 @@ test.describe('Auth y routing público', () => {
   test('splash → /login cuando no hay sesión', async ({ page }) => {
     await page.goto('/');
     await expectOnPath(page, /\/login$/);
-    await expect(page.getByRole('heading', { name: 'Bienvenida de nuevo.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Entra a tu cuenta.' })).toBeVisible();
   });
 
   test('login como CUSTOMER entra a /customer sin MFA', async ({ page }) => {

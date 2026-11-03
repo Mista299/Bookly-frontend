@@ -50,7 +50,15 @@ export async function expectTouchTargets(page: Page, min = TOUCH_TARGET_MIN): Pr
       if ((el as HTMLButtonElement).disabled) return;
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return;
-      // Un padre con overflow hidden puede recortar el hit area real; usamos el box visible.
+
+      // Los enlaces de texto en línea dentro de un párrafo no son un
+      // objetivo táctil: pulsarlos require apuntar entre palabras.
+      const isInlineInText =
+        el.tagName === 'A' &&
+        !!el.closest('p, li') &&
+        getComputedStyle(el).display.startsWith('inline');
+      if (isInlineInText) return;
+
       if (r.height < minPx || r.width < minPx) {
         const label = (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30);
         out.push(

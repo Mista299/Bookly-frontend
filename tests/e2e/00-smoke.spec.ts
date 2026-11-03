@@ -5,7 +5,7 @@ test.describe('Smoke', () => {
     const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
     expect(response?.status()).toBeLessThan(500);
     await expect(page).toHaveURL(/\/login$/, { timeout: 10_000 });
-    await expect(page.getByText('Bienvenida de nuevo.')).toBeVisible();
+    await expect(page.getByText('Entra a tu cuenta.')).toBeVisible();
   });
 
   test('splash ya no muestra el BOOKLY loading', async ({ page }) => {

@@ -151,6 +151,9 @@
       background: transparent;
       font-size: $fs-base;
       color: $text;
+      // El contenedor ya tiene 44px, pero el input en sí debe alcanzar el
+      // mínimo táctil cuando se mide por separado.
+      min-height: $touch-target;
 
       &:focus {
         outline: none;
@@ -285,5 +288,14 @@
 
   .row__chev {
     color: $muted;
+  }
+
+  // enlace al detalle del servicio dentro de la fila: objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .row__name {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
   }
 </style>

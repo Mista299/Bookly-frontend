@@ -254,4 +254,13 @@
     color: $muted;
     margin-top: 2px;
   }
+
+  // Enlace "Ver mi agenda": objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .counter__link {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 </style>

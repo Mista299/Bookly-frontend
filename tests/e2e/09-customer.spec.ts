@@ -88,10 +88,24 @@ test.describe('Customer → Servicios / Agenda / Reserva / Cancel', () => {
     await loginCustomer(page);
     await page.goto('/customer/services');
     await page.waitForLoadState('networkidle');
-    await page.getByRole('link', { name: /Corte clásico/ }).first().click();
+    const link = page.getByRole('link', { name: /Corte clásico/ }).first();
+    await expect(link).toBeVisible({ timeout: 10_000 });
+    await link.click();
     await expect(page).toHaveURL(/\/customer\/services\/[^/]+$/);
-    // Calendar presente
-    await expect(page.locator('.cal--day').first()).toBeVisible({ timeout: 10_000 });
+
+    // Selector de profesional presente.
+    await expect(page.getByRole('combobox', { name: 'Profesional' })).toBeVisible({
+      timeout: 10_000
+    });
+
+    // El calendario se pinta en un día con disponibilidad. En "hoy" puede no
+    // existir (todas las franjas ya pasaron), así que avanzamos un día.
+    const dateLabel = page.locator('.picker__date-label');
+    await expect(dateLabel).toBeVisible({ timeout: 10_000 });
+    const antes = await dateLabel.textContent();
+    await page.getByRole('button', { name: 'Día siguiente' }).click();
+    await expect(dateLabel).not.toHaveText(antes ?? '', { timeout: 15_000 });
+    await expect(page.locator('.cal--day').first()).toBeVisible({ timeout: 15_000 });
   });
 
   test('agenda del cliente muestra sus reservas', async ({ page }) => {

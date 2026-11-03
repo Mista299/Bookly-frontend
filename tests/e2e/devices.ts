@@ -1,11 +1,18 @@
-import type { BrowserContextOptions, Page } from '@playwright/test';
+import type { BrowserContextOptions } from '@playwright/test';
 import { devices as pwDevices } from '@playwright/test';
 
 /**
- * Registry de dispositivos used para la matriz responsive/móvil.
+ * Registry de dispositivos usados para la matriz responsive/móvil.
  * Los tamaños reales de Android/iOS dominantes cubren el requisito
  * "que se vea bien en cualquier celular".
+ *
+ * `label` es informativo (para los títulos de los tests) y no forma parte de
+ * BrowserContextOptions, por eso el tipo propio.
  */
+type DeviceSpec = BrowserContextOptions & { label: string };
+
+export type { DeviceSpec };
+
 export const DEVICES = {
   /** iPhone SE 1 — el límite inferior real (320px). Nadie debe designing más abajo. */
   'iphone-se': {
@@ -60,7 +67,7 @@ export const DEVICES = {
     isMobile: false,
     hasTouch: false
   }
-} as const satisfies Record<string, BrowserContextOptions>;
+} as const satisfies Record<string, DeviceSpec>;
 
 export type DeviceKey = keyof typeof DEVICES;
 export const DEVICE_KEYS = Object.keys(DEVICES) as DeviceKey[];
@@ -69,8 +76,11 @@ export const DEVICE_KEYS = Object.keys(DEVICES) as DeviceKey[];
 export const MOBILE_DEVICE_KEYS = DEVICE_KEYS.filter((k) => k !== 'desktop');
 
 /** Aplica un dispositivo al contexto de Playwright. */
-export function applyDevice(contextOptions: BrowserContextOptions, key: DeviceKey): BrowserContextOptions {
-  const d = DEVICES[key];
+export function applyDevice(
+  contextOptions: BrowserContextOptions,
+  key: DeviceKey
+): BrowserContextOptions {
+  const d = DEVICES[key] as DeviceSpec;
   return {
     ...contextOptions,
     viewport: d.viewport,

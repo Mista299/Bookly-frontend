@@ -647,4 +647,15 @@
       cursor: not-allowed;
     }
   }
+
+
+
+  // acciones de la fila (agenda, editar servicios, restablecer): objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .action {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 </style>

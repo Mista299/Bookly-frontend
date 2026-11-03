@@ -93,8 +93,10 @@
 <div class="card">
   <header class="card__head">
     <p class="eyebrow">Acceso</p>
-    <h1 class="card__title">Bienvenida de nuevo.</h1>
-    <p class="card__lede">Inicia sesión para administrar servicios y profesionales.</p>
+    <h1 class="card__title">Entra a tu cuenta.</h1>
+    <p class="card__lede">
+      Clientes, profesionales y administradores usan esta misma pantalla.
+    </p>
   </header>
 
   <form class="form" onsubmit={onSubmit} novalidate>

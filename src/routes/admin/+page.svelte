@@ -595,4 +595,14 @@
     color: $muted;
     margin-top: 2px;
   }
+
+  // enlaces "ver todos" de las tarjetas del resumen: objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .overview__link,
+    .quick__link {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 </style>

@@ -4,6 +4,15 @@ import type { ApiError } from '$lib/types/auth';
 export const TOKEN_KEY = 'bookly.token';
 export const UNAUTHORIZED_EVENT = 'bookly:unauthorized';
 
+/**
+ * URL base de la API.
+ *
+ * - En desarrollo web, el proxy de Vite sirve `/api` contra el backend local,
+ *   así que basta con la ruta relativa.
+ * - En el APK (Capacitor) no hay proxy: el WebView sirve la app desde
+ *   `https://localhost`, así que hace falta una URL absoluta. Se define con
+ *   VITE_API_URL en el build del APK (ver package.json → build:android).
+ */
 const API_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 
 export const tokenStore = {

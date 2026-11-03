@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { auth } from '$lib/stores/auth';
   import { Home, Search, CalendarDays, UserRound, LogOut, BookOpen } from 'lucide-svelte';
+  import BottomNav from '$lib/components/BottomNav.svelte';
   import { goto } from '$app/navigation';
 
   const items = [
@@ -69,6 +70,9 @@
     </div>
   {/if}
 </aside>
+
+<!-- Navegación inferior (móvil): máximo 5 destinos, el resto bajo "Más". -->
+<BottomNav {items} label="Secciones de cliente" moreLabel="Más" />
 
 <style lang="scss">
   @use '$lib/styles/tokens' as *;
@@ -218,74 +222,12 @@
     }
   }
 
+  // En móvil el lateral desaparece: lo reemplaza la barra inferior.
+  // En móvil el lateral desaparece: lo reemplaza la barra inferior.
+  // En móvil el lateral desaparece: lo reemplaza la barra inferior.
   @media (max-width: #{$bp-lg - 1px}) {
     .nav {
-      position: fixed;
-      top: auto;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-around;
-      width: auto;
-      height: auto;
-      min-height: var(--nav-h);
-      padding: $space-2 $space-3;
-      border-right: 0;
-      border-top: 1px solid $border;
-      background: $surface;
-      z-index: $z-sticky;
-      gap: 0;
-    }
-
-    .nav__brand,
-    .nav__user {
       display: none;
-    }
-
-    .nav__list {
-      flex-direction: row;
-      flex: 1;
-      justify-content: space-around;
-      margin: 0;
-    }
-
-    .nav__item {
-      flex-direction: column;
-      gap: 2px;
-      padding: $space-2 $space-2;
-      font-size: 11px;
-      min-height: 56px;
-      min-width: 64px;
-      justify-content: center;
-    }
-
-    .nav__item-label {
-      font-size: 11px;
-    }
-
-    @media (max-width: 359px) {
-      .nav__item {
-        min-width: 56px;
-        padding: $space-2 $space-1;
-      }
-
-      .nav__item-label {
-        font-size: 10px;
-      }
-    }
-
-    @media (max-width: 339px) {
-      .nav__item-label {
-        font-size: 0;
-        line-height: 0;
-      }
-
-      .nav__item {
-        padding: $space-2 0;
-        gap: 0;
-      }
     }
   }
 </style>

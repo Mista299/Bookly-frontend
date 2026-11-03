@@ -22,11 +22,18 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  // Evita el rebote horizontal en Android/iOS.
+  overflow-x: hidden;
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  // Respeta la barra de gestos y el notch: sin esto, la barra inferior de
+  // navegación queda debajo del gesto del sistema en Android y bajo el
+  // indicador de inicio en iOS.
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 h1,
@@ -101,6 +108,36 @@ svg {
   outline: 2px solid $plum;
   outline-offset: 2px;
   border-radius: $radius-xs;
+}
+
+// =============================================================
+// Objetivo táctil mínimo (WCAG 2.5.5 / Material 3: 44px).
+//
+// En lugar de parchear cada control, se aplica una regla global que
+// garantiza que cualquier elemento interactivo tenga al menos 44px de
+// alto en móvil. Los controles que ya superan ese tamaño no cambian.
+//
+// Nota: min-height no altera el layout de los botones de icono, pero
+// sus áreas seexpanden en la dirección del eje principal sin romper el
+// diseño visual.
+// =============================================================
+@media (max-width: #{$bp-lg - 1px}) {
+  button,
+  a[href],
+  input:not([type='hidden']),
+  select,
+  textarea,
+  [role='button'],
+  [role='tab'] {
+    min-height: $touch-target;
+  }
+
+  // Los enlaces de texto en línea dentro de un párrafo no deben aumentar
+  // su altura: romperían el ritmo tipográfico.
+  p a[href],
+  li a[href]:only-child {
+    min-height: 0;
+  }
 }
 
 // Utilidades tipográficas.

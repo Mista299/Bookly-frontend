@@ -473,4 +473,19 @@
       cursor: not-allowed;
     }
   }
+
+  // Objetivos táctiles de 44px en móvil: los inputs de hora, el botón de
+  // quitar franja y el de añadir franja.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .range input[type='time'],
+    .range__remove,
+    .sched__add-btn {
+      min-height: $touch-target;
+    }
+
+    .range__remove {
+      width: $touch-target;
+      height: $touch-target;
+    }
+  }
 </style>

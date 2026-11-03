@@ -393,4 +393,13 @@
     color: $muted;
     align-self: flex-end;
   }
+
+  // acciones de la fila de turnos: objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .row__action {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 </style>

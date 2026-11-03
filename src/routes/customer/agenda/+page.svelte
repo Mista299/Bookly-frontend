@@ -541,4 +541,22 @@
     color: $muted;
     align-self: flex-end;
   }
+
+  // botón de cancelar reserva: objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .booking__cancel {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
+  // botón de historial: objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .history__toggle {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 </style>

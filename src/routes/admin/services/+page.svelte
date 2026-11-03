@@ -421,4 +421,22 @@
     color: $muted;
     line-height: $lh-relaxed;
   }
+
+  // Objetivo táctil de 44px en móvil: el icono mantiene su tamaño visual
+  // pero el área que se puede pulsar crece.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .row__action {
+      width: $touch-target;
+      height: $touch-target;
+    }
+  }
+
+  // enlace al detalle del servicio dentro de la fila: objetivo táctil de 44px en móvil.
+  @media (max-width: #{$bp-lg - 1px}) {
+    .row__name {
+      min-height: $touch-target;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 </style>
