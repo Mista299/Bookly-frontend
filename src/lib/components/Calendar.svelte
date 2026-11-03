@@ -382,7 +382,9 @@
 
   .day-slot__hint {
     font-size: $fs-xs;
-    color: color.adjust($muted, $lightness: 15%);
+    // Sin aclarar el gris: color.adjust($muted, +15%) lo dejaba en 3.18:1
+    // sobre blanco, por debajo del mínimo AA de 4.5:1.
+    color: $muted;
   }
 
   .day-slot__bar {

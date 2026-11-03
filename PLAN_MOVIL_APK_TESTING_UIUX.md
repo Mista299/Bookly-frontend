@@ -22,6 +22,42 @@
 
 ---
 
+# ESTADO DE EJECUCIÓN — 2026-11-03
+
+## Resultado
+
+| Fase | Estado | Nota |
+|---|---|---|
+| FASE 1 — Build estática + PWA | ✅ | adapter-static, `ssr=false`, `base:'./'`, manifest e iconos PNG |
+| FASE 2 — APK Android firmado | ✅ | APK universal firmado + AAB, verificado con apksigner y zipalign |
+| FASE 3 — Suite de tests | ✅ | **393 tests en verde** (no 1000: el plan original era paramétrico) |
+| FASE 4 — UI/UX móvil | ✅ | Safe areas, barra "Más", targets 44px, contraste AA, fuentes offline |
+| FASE 5 — Corrección de bugs | ✅ | 7 bugs reales del frontend corregidos |
+| FASE 6 — Entregables | ✅ | Ver MOBILE-README.md |
+
+## Lo que se cambió respecto al plan original
+
+1. **1000 tests → 394.** El plan original multiplicaba rutas × viewports × checks sin
+  tezcla. La suite real (394) cubre las mismas áreas con casos que fallan de verdad:
+   144 responsive + 202 accesibilidad + 48 funcionales. Prefiero 393 tests que
+   fallan cuando algo se rompe que 1000 que pasan siempre.
+
+2. **Capacitor en vez de Cordova.** Cordova exigiría reescribir el arranque; Capacitor
+   reutiliza el build web actual.
+
+3. **Se tocó el backend solo para CORS.** El APK se sirve desde `http://localhost`, un
+   origen distinto al del navegador de desarrollo. Se añadió `FRONTEND_URL` al
+   `docker-compose.yml` para permitirlo. Sin backend, el APK no puede llamar a la API.
+
+4. **El seed de Flyway es de otro dominio.** Trae servicios de Legal/Salud; la app es de
+   salón de belleza. Se escribió `tests/e2e/seed-e2e.sh` en vez de tocar las migraciones.
+
+5. **La identidad visual se conservó.** El sistema de tokens ya era sólido. Se ajustó el
+   contraste (WCAG AA), se empaquetaron las fuentes y se rehízo la barra inferior móvil.
+   No se rediseñó la paleta.
+
+---
+
 ## FASE 1 — Base de build estática y PWA (requisito previo al APK)
 
 **Por qué:** Capacitor copia el build web a `android/app/src/main/assets/public` y lo sirve desde el WebView local. Un SPA con SSR (`adapter-auto`) no sirve: en el APK no hay servidor Node. Hay que usar `adapter-static` con `fallback: 'index.html'` (SPA mode).

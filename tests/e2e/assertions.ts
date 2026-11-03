@@ -267,6 +267,17 @@ export async function expectTextContrast(page: Page, minRatio = 4.5): Promise<vo
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4) return;
 
+      // Los placeholders de carga (skeleton) no son texto: son la "—"
+      // que aparece mientras llegan los datos. No se les exige contraste
+      // porque no son legibles por diseño, y desaparecen al cargar.
+      if (el.classList.contains('skeleton') || el.classList.contains('skeleton__line')) {
+        return;
+      }
+      const isPlaceholderGlyph =
+        (el.textContent ?? '').trim() === '—' &&
+        el.className.toString().includes('placeholder');
+      if (isPlaceholderGlyph) return;
+
       const fgParsed = parse(s.color);
       const bg = effectiveBg(el);
       // El texto también puede tener alfa: se compone sobre el fondo.
