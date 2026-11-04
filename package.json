@@ -18,7 +18,10 @@
     "android:aab": "npm run android:sync && cd android && ./gradlew bundleRelease",
     "android:install": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
     "android:run": "adb shell am start -n com.bookly.app/.MainActivity",
-    "android:logs": "adb logcat | grep -iE 'bookly|Capacitor|chromium'"
+    "android:logs": "adb logcat | grep -iE 'bookly|Capacitor|chromium'",
+    "celular:conectar": "bash scripts/conectar.sh",
+    "celular:instalar": "bash scripts/auto-instalar.sh --instalar",
+    "celular:desarrollo": "bash scripts/desarrollo.sh"
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",
