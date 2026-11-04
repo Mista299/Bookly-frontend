@@ -196,6 +196,29 @@ Después, al entrar con el admin, aparece la pantalla **"Activar segundo factor"
 con el código QR y el secret en texto. Puedes escanearlo con tu app de
 autenticación o copiarlo a mano.
 
+### Re-enrolar sin pasar por la app
+
+Si quieres que el admin quede con MFA y que `npm run mfa:codigo` funcione
+directamente:
+
+```bash
+npm run mfa:enrolar
+```
+
+Ojo: **las corridas de tests desactivan el MFA del admin** (el `global-setup`
+lo resetea para que las specs recorran el flujo de setup). Si después de correr
+los tests el código falla, reenróyalo:
+
+```bash
+npm run mfa:enrolar
+```
+
+O pídele al seed que lo deje enrolado:
+
+```bash
+MFA_ADMIN=1 npm run seed:e2e
+```
+
 ### Otros usuarios
 
 ```bash
@@ -204,6 +227,29 @@ npm run mfa:codigo -- cliente.maria@bookly.local
 
 Los clientes y profesionales **no** tienen MFA: con su correo y contraseña
 entran directo.
+
+### Sobre "el backend local en el celular"
+
+El script del MFA y la app del celular usan **el mismo backend**:
+
+```
+script mfa-codigo  ──lee──>  base de datos (contenedor backendcf-db)
+                                          ▲
+app en el celular  ──adb reverse──>  backend :18080 en el PC
+```
+
+El script habla con la base de datos directamente (para descifrar el secret);
+la app habla con la API. Ambos apuntan al mismo `docker compose` del backend
+local, así que el código que te da el script es **exactamente** el que acepta
+la app en el celular.
+
+Comprobado desde el propio dispositivo:
+
+```bash
+adb shell curl -s -X POST http://localhost:18080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@bookly.local","password":"Admin123!Pass"}'
+```
 
 ---
 

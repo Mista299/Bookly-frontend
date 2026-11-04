@@ -17,6 +17,7 @@ set -euo pipefail
 
 API="${API:-http://127.0.0.1:18080/api/v1}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@bookly.local}"
+PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ADMIN_PASS="${ADMIN_PASS:-Admin123!Pass}"
 PROF_PASS="${PROF_PASS:-Prof123!Pass}"
 CUST_PASS="${CUST_PASS:-Client123!Pass}"
@@ -526,6 +527,18 @@ log "Restableciendo MFA del admin para el flujo UI…"
 docker exec backendcf-db psql -U backendcf -d backendcf -c \
   "DELETE FROM mfa_trusted_device; DELETE FROM mfa_recovery_code; UPDATE app_user SET mfa_enabled=false, mfa_secret_encrypted=NULL, failed_login_attempts=0, locked_until=NULL WHERE email='$ADMIN_EMAIL';" >/dev/null 2>&1 || true
 ok "  admin listo para /login/mfa-setup"
+
+# ---------------------------------------------------------------- MFA del admin
+# Por defecto el admin queda SIN MFA (para que los tests recorran el flujo de
+# setup). Si quieres entrar a mano desde el celular con un código TOTP, pídelo
+# con MFA_ADMIN=1: el script enrola al admin con un secret conocido para que
+# `npm run mfa:codigo` devuelva siempre un código válido.
+if [[ "${MFA_ADMIN:-0}" == "1" ]]; then
+  log "Enrolando MFA del admin (MFA_ADMIN=1)…"
+  node "$PROJECT/scripts/enrolar-mfa.mjs" "$ADMIN_EMAIL" && \
+    ok "  admin con MFA: usa 'npm run mfa:codigo' para el código" || \
+    warn "  ! no se pudo enrolar el MFA del admin"
+fi
 
 # ---------------------------------------------------------------- verificación
 log "Verificando asignaciones de servicios…"

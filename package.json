@@ -23,7 +23,8 @@
     "celular:instalar": "bash scripts/auto-instalar.sh --instalar",
     "celular:desarrollo": "bash scripts/desarrollo.sh",
     "mfa:codigo": "node scripts/mfa-codigo.mjs",
-    "mfa:reset": "node scripts/mfa-codigo.mjs --reset"
+    "mfa:reset": "node scripts/mfa-codigo.mjs --reset",
+    "mfa:enrolar": "node scripts/enrolar-mfa.mjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",
