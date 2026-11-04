@@ -25,6 +25,12 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '127.0.0.1',
       port: 5173,
+      // El watcher ignora el proyecto Android y los artefactos de build:
+      // sin esto, cada build de Gradle disparaba un reload de Vite y la
+      // página se recargaba sola mientras se usaba la app.
+      watch: {
+        ignored: ['**/android/**', '**/build/**', '**/.svelte-kit/**', '**/test-results/**']
+      },
       proxy: {
         '/api': {
           // 18080 = backend en Docker (compose). 8080 = backend corrido con `java -jar` en local.

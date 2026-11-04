@@ -17,7 +17,10 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: false,
+    // Habilita la inspección del WebView por Chrome DevTools (adb forward
+    // tcp:9222). Es lo que permite ver los errores de consola de la app
+    // mientras se depura en el dispositivo. En release se puede desactivar.
+    webContentsDebuggingEnabled: true,
     backgroundColor: '#f8f6f2'
   },
   plugins: {

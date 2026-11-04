@@ -144,6 +144,7 @@
               class:is-active={active}
               aria-current={active ? 'page' : undefined}
               data-od-id={`nav-link-${item.href.replace(/\//g, '-')}`}
+              onclick={() => (sheetOpen = false)}
             >
               <span class="sheet__icon" aria-hidden="true">
                 <item.icon size={18} />

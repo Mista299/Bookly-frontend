@@ -24,7 +24,9 @@
     "celular:desarrollo": "bash scripts/desarrollo.sh",
     "mfa:codigo": "node scripts/mfa-codigo.mjs",
     "mfa:reset": "node scripts/mfa-codigo.mjs --reset",
-    "mfa:enrolar": "node scripts/enrolar-mfa.mjs"
+    "mfa:enrolar": "node scripts/enrolar-mfa.mjs",
+    "celular:desarrollo:watch": "bash scripts/desarrollo.sh --watch",
+    "celular:desarrollo:sin-mirror": "bash scripts/desarrollo.sh --sin-mirror"
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",

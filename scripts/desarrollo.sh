@@ -98,6 +98,14 @@ if [[ -n "$DEV" ]]; then
   "$ADB" -s "$DEV" reverse tcp:18080 tcp:18080 >/dev/null 2>&1 && \
     ok "Puerto 18080 redirigido al PC"
 
+  # Si el celular está dormido, la app entra en pausa y el login falla con
+  # "Respuesta inesperada". Se despierta y se quita el bloqueo de pantalla.
+  if [[ "$("$ADB" -s "$DEV" shell dumpsys power 2>/dev/null | grep -o 'mWakefulness=[A-Za-z]*' | head -1)" != *"Awake" ]]; then
+    "$ADB" -s "$DEV" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+    "$ADB" -s "$DEV" shell wm dismiss-keyguard >/dev/null 2>&1
+    ok "Pantalla despertada"
+  fi
+
   # Instala el APK. En modo watch se usa el de debug: el watcher reinstala
   # ese mismo build, y cambiar de firma entre instalaciones fallaría.
   if [[ "$WATCH" -eq 1 ]]; then
