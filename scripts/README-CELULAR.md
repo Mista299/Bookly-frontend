@@ -161,7 +161,53 @@ adb logcat -d | grep -i "Capacitor/Console"
 
 ---
 
-## 8. Requisitos instalados en el PC
+## 8. El segundo factor (MFA) del administrador
+
+El admin usa TOTP: pide un **código de 6 dígitos** además de la contraseña.
+Es el mismo código que mostraría Google Authenticator, pero sin la app.
+
+```bash
+npm run mfa:codigo          # muestra el código vigente
+npm run mfa:codigo -- --loop  # lo refresca solo cada segundo
+```
+
+```
+  admin@bookly.local
+  ┌───────────────┐
+  │  4 7 2 3 2 5  │
+  └───────────────┘
+  Vence en 23s
+```
+
+Los códigos rotan cada 30 segundos. Si expira, vuelve a ejecutar el comando.
+
+### Si prefieres configurar el segundo factor desde la app
+
+La primera vez, el admin **no** tiene MFA y la app muestra un QR con el secret.
+Ahí es donde normalement lo escaneas con Google Authenticator / Aegis.
+
+Para volver a ese estado (y que la app muestre el QR otra vez):
+
+```bash
+npm run mfa:reset
+```
+
+Después, al entrar con el admin, aparece la pantalla **"Activar segundo factor"**
+con el código QR y el secret en texto. Puedes escanearlo con tu app de
+autenticación o copiarlo a mano.
+
+### Otros usuarios
+
+```bash
+npm run mfa:codigo -- cliente.maria@bookly.local
+```
+
+Los clientes y profesionales **no** tienen MFA: con su correo y contraseña
+entran directo.
+
+---
+
+## 9. Requisitos instalados en el PC
 
 | Herramienta | Ubicación | Para qué |
 |---|---|---|

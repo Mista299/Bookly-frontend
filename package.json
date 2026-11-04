@@ -21,7 +21,9 @@
     "android:logs": "adb logcat | grep -iE 'bookly|Capacitor|chromium'",
     "celular:conectar": "bash scripts/conectar.sh",
     "celular:instalar": "bash scripts/auto-instalar.sh --instalar",
-    "celular:desarrollo": "bash scripts/desarrollo.sh"
+    "celular:desarrollo": "bash scripts/desarrollo.sh",
+    "mfa:codigo": "node scripts/mfa-codigo.mjs",
+    "mfa:reset": "node scripts/mfa-codigo.mjs --reset"
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",

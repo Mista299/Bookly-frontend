@@ -51,7 +51,7 @@ if [[ "$WIRELESS" -eq 1 ]]; then
 fi
 
 info "Esperando el dispositivo…"
-for i in $(seq 1 30); do
+for i in $(seq 1 90); do
   DEVS=$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}')
   if [[ -n "$DEVS" ]]; then break; fi
   sleep 1

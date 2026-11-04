@@ -77,9 +77,11 @@ else
 fi
 
 # ---------------------------------------------------------------- dispositivo
+# Se espera hasta 90s: tras reiniciar el server de adb el dispositivo puede
+# tardar en reconectarse, y con un celular real el cable se negocia lento.
 info "Esperando el celular…"
 DEV=""
-for i in $(seq 1 30); do
+for i in $(seq 1 90); do
   DEV=$("$ADB" devices | awk 'NR>1 && $2=="device" && $1 !~ /^emulator/ {print $1; exit}')
   [[ -n "$DEV" ]] && break
   sleep 1
@@ -95,26 +97,85 @@ if [[ -n "$DEV" ]]; then
   ok "Dispositivo: $DEV ($MODELO)"
   "$ADB" -s "$DEV" reverse tcp:18080 tcp:18080 >/dev/null 2>&1 && \
     ok "Puerto 18080 redirigido al PC"
+
+  # Instala el APK. En modo watch se usa el de debug: el watcher reinstala
+  # ese mismo build, y cambiar de firma entre instalaciones fallaría.
+  if [[ "$WATCH" -eq 1 ]]; then
+    APK_A_INSTALAR="$PROJECT/android/app/build/outputs/apk/debug/app-debug.apk"
+    [[ -f "$APK_A_INSTALAR" ]] || (cd "$PROJECT" && npm run android:apk >/dev/null 2>&1)
+  else
+    APK_A_INSTALAR="$PROJECT/android/app/build/outputs/apk/release/app-release.apk"
+    [[ -f "$APK_A_INSTALAR" ]] || (cd "$PROJECT" && npm run android:apk:release >/dev/null 2>&1)
+  fi
+
+  if [[ -f "$APK_A_INSTALAR" ]]; then
+    if "$ADB" -s "$DEV" install -r "$APK_A_INSTALAR" 2>&1 | grep -q Success; then
+      ok "APK instalado ($(basename "$APK_A_INSTALAR"))"
+    else
+      # Puede haber una versión anterior con otra firma: se desinstala.
+      warn "Reinstalando (firma distinta)…"
+      "$ADB" -s "$DEV" uninstall com.bookly.app >/dev/null 2>&1
+      "$ADB" -s "$DEV" install "$APK_A_INSTALAR" 2>&1 | grep -q Success && \
+        ok "APK instalado"
+    fi
+  else
+    warn "No se pudo generar el APK. Ver npm run android:apk"
+  fi
 else
   warn "Sin dispositivo: solo queda el frontend web."
 fi
 
 # ------------------------------------------------------ watcher de cambios
+# Reinstala el APK cada vez que el frontend se recompila.
+#
+# El sello es el hash del build, no la fecha: comparar por fecha realimentaba
+# el bucle (la propia compilación generaba un build más nuevo y disparaba
+# otra compilación, indefinidamente).
+#
+# Usa el APK de debug: el release firmado tarda minutos en compilarse y para
+# iterar es demasiado lento. La app instalada queda firmada con la clave de
+# debug, que es la que espera el emulador.
 if [[ "$WATCH" -eq 1 && -n "$DEV" ]]; then
   info "Modo watch: el APK se reinstala al recompilar el frontend."
+  STAMP="/tmp/opencode/logs/.apk-watch-stamp"
+  mkdir -p "$(dirname "$STAMP")"
+
+  # El primer ciclo no reinstala: la app ya está instalada arriba.
+  if [[ -f "$PROJECT/build/index.html" ]]; then
+    md5sum "$PROJECT/build/index.html" | cut -d' ' -f1 >"$STAMP"
+  fi
+
   (
     while true; do
-      if [[ "$PROJECT/build/index.html" -nt /tmp/opencode/logs/.apk-watch-stamp ]]; then
-        touch /tmp/opencode/logs/.apk-watch-stamp
-        info "Detectado cambio: recompilando…"
-        if (cd "$PROJECT" && npm run android:apk:release >>/tmp/opencode/logs/apk-build.log 2>&1); then
-          "$ADB" -s "$DEV" install -r "$PROJECT/android/app/build/outputs/apk/release/app-release.apk" 2>&1 | grep -q Success && \
-            { ok "APK reinstalado"; "$ADB" -s "$DEV" shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; }
-        else
-          err "Falló la compilación. Ver /tmp/opencode/logs/apk-build.log"
+      if [[ -f "$PROJECT/build/index.html" ]]; then
+        actual=$(md5sum "$PROJECT/build/index.html" | cut -d' ' -f1)
+        previo=$(cat "$STAMP" 2>/dev/null || echo "")
+
+        if [[ -n "$actual" && "$actual" != "$previo" ]]; then
+          echo "$actual" >"$STAMP"
+          info "Cambio detectado: reconstruyendo el APK…"
+
+          # Compila solo el bundle web y lo copia a android/ (sin Gradle
+          # completo): para iterar, el build web es lo que cambia.
+          if (cd "$PROJECT" && npm run build:android >>/tmp/opencode/logs/apk-build.log 2>&1 && \
+              npx cap copy android >>/tmp/opencode/logs/apk-build.log 2>&1); then
+            if (cd "$PROJECT/android" && ./gradlew assembleDebug -q >>/tmp/opencode/logs/apk-build.log 2>&1); then
+              APK_DEBUG="$PROJECT/android/app/build/outputs/apk/debug/app-debug.apk"
+              if "$ADB" -s "$DEV" install -r "$APK_DEBUG" 2>&1 | grep -q Success; then
+                ok "APK reinstalado (debug)"
+                "$ADB" -s "$DEV" shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+              else
+                err "Falló la instalación. Ver /tmp/opencode/logs/apk-build.log"
+              fi
+            else
+              err "Falló Gradle. Ver /tmp/opencode/logs/apk-build.log"
+            fi
+          else
+            err "Falló la compilación. Ver /tmp/opencode/logs/apk-build.log"
+          fi
         fi
       fi
-      sleep 4
+      sleep 3
     done
   ) &
 fi
