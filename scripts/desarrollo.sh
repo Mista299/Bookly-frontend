@@ -106,6 +106,12 @@ if [[ -n "$DEV" ]]; then
     ok "Pantalla despertada"
   fi
 
+  # Mantiene la pantalla encendida mientras el USB está supplying (el celular
+  # sigue cargando, así que no se descarga). Evita que el usuario tenga que
+  # mantener el dedo en la pantalla para que la app no se pause.
+  "$ADB" -s "$DEV" shell svc power stayon true >/dev/null 2>&1 && \
+    ok "Pantalla siempre encendida mientras carga"
+
   # Instala el APK. En modo watch se usa el de debug: el watcher reinstala
   # ese mismo build, y cambiar de firma entre instalaciones fallaría.
   if [[ "$WATCH" -eq 1 ]]; then

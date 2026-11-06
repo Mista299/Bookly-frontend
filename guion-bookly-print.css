@@ -1,0 +1,142 @@
+@page {
+  size: A4;
+  margin: 18mm 16mm 16mm 16mm;
+  @bottom-center {
+    content: "BOOKLY · Guion de presentación · " counter(page) " / " counter(pages);
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 8pt;
+    color: #6e5b7e;
+  }
+}
+
+body {
+  font-family: "DejaVu Serif", Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.42;
+  color: #2e2438;
+}
+
+h1 {
+  font-size: 23pt;
+  color: #2e2438;
+  margin: 0 0 6mm;
+  padding-bottom: 4mm;
+  border-bottom: 2px solid #b4562f;
+}
+
+h2 {
+  font-size: 15pt;
+  color: #2e2438;
+  margin: 8mm 0 3mm;
+  padding: 2.5mm 3mm;
+  background: #f0ebe5;
+  border-left: 4px solid #b4562f;
+  break-after: avoid;
+}
+
+h3 {
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 10.5pt;
+  color: #6e5b7e;
+  margin: 4mm 0 1.5mm;
+  break-after: avoid;
+}
+
+p {
+  margin: 0 0 2.5mm;
+}
+
+blockquote {
+  margin: 2mm 0 4mm 4mm;
+  padding: 2.5mm 4mm;
+  background: #fbf8f4;
+  border-left: 3px solid #6e5b7e;
+  color: #40344f;
+  break-inside: avoid;
+}
+
+blockquote p {
+  margin-bottom: 1.8mm;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+ul, ol {
+  margin: 2mm 0 4mm 6mm;
+  padding-left: 5mm;
+}
+
+li {
+  margin-bottom: 1.3mm;
+}
+
+strong {
+  color: #2e2438;
+}
+
+code {
+  font-family: "DejaVu Sans Mono", monospace;
+  font-size: 8.8pt;
+  background: #eee8e1;
+  padding: 0.5mm 1.2mm;
+  border-radius: 2px;
+}
+
+pre {
+  background: #2e2438;
+  color: #f7f4ef;
+  padding: 3mm 4mm;
+  border-radius: 2mm;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  break-inside: avoid;
+}
+
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #e3dcd2;
+  margin: 5mm 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2mm 0 4mm;
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 9pt;
+  break-inside: avoid;
+}
+
+th {
+  background: #2e2438;
+  color: #ffffff;
+  text-align: left;
+  padding: 2mm;
+}
+
+td {
+  border: 1px solid #e3dcd2;
+  padding: 2mm;
+  vertical-align: top;
+}
+
+th:first-child, td:first-child {
+  width: 26%;
+}
+
+a {
+  color: #b4562f;
+  text-decoration: none;
+}
+
+strong:first-child:last-child {
+  color: #2e2438;
+}
